@@ -1,1 +1,460 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>OKRU TV - CINEMATIC PLAYER</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body, html {
+      width: 100vw; height: 100vh;
+      background: #030712; color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+    }
 
+    /* REPRODUCTOR DE VÍDEO A PANTALLA COMPLETA */
+    #video-stage {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      background: #000; z-index: 1; display: flex; align-items: center; justify-content: center;
+    }
+    video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+
+    /* ENCABEZADO CINEMATOGRÁFICO */
+    header {
+      position: fixed; top: 0; left: 0; right: 0; height: 64px; padding: 0 20px;
+      display: flex; justify-content: space-between; align-items: center;
+      background: linear-gradient(to bottom, rgba(3,7,18,0.95), rgba(3,7,18,0));
+      z-index: 30; pointer-events: none;
+    }
+    header > * { pointer-events: auto; }
+    
+    .brand-box { display: flex; align-items: center; gap: 12px; }
+    .brand-title {
+      font-size: 1.35rem; font-weight: 900; letter-spacing: 1.2px; color: #f8fafc;
+      text-shadow: 0 0 15px rgba(0, 242, 254, 0.35);
+    }
+    .brand-title span { color: #00f2fe; }
+    
+    .btn-menu {
+      background: rgba(15, 23, 42, 0.85); color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 8px 14px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.85rem;
+    }
+    .btn-menu:active, .btn-menu:focus { background: #00f2fe; color: #000; border-color: #00f2fe; outline: none; }
+
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .badge-mode {
+      background: rgba(0, 242, 254, 0.15); color: #00f2fe;
+      padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 800;
+      border: 1px solid rgba(0, 242, 254, 0.35);
+    }
+    #signal-status { font-size: 0.75rem; color: #10b981; font-weight: 800; }
+
+    /* PANEL LATERAL DESPLEGABLE (GLASSMORPHISM) */
+    #drawer {
+      position: fixed; top: 72px; left: 16px; bottom: 72px;
+      width: 370px; max-width: calc(100vw - 32px);
+      background: rgba(11, 17, 32, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 16px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.85);
+      display: flex; flex-direction: column; padding: 14px; gap: 10px;
+      z-index: 25; transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    #drawer.collapsed { transform: translateX(-120%); opacity: 0; pointer-events: none; }
+
+    /* PANEL DE CARGA LIBRE (USB/LOCAL + URL SERVIDOR) */
+    .load-box {
+      display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+      background: rgba(3, 7, 18, 0.6); padding: 10px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #00f2fe, #0088ff); color: #000;
+      border: none; padding: 11px; border-radius: 8px; font-weight: 800; cursor: pointer;
+      font-size: 0.85rem; text-align: center; width: 100%;
+    }
+    .btn-primary:active { opacity: 0.85; }
+
+    .url-row { display: flex; gap: 6px; }
+    .input-dark {
+      background: #070b14; border: 1px solid rgba(255, 255, 255, 0.15); color: #fff;
+      padding: 9px 10px; border-radius: 8px; font-size: 0.82rem; outline: none;
+    }
+    .input-dark:focus { border-color: #00f2fe; }
+    .btn-url {
+      background: #1e293b; color: #00f2fe; border: 1px solid rgba(0, 242, 254, 0.3);
+      padding: 0 14px; border-radius: 8px; font-weight: 800; cursor: pointer; font-size: 0.82rem;
+    }
+    .btn-url:active { background: #00f2fe; color: #000; }
+
+    /* FILTROS Y BUSCADOR */
+    .filter-row { display: flex; gap: 6px; flex-shrink: 0; }
+    .select-tv { width: 110px; font-weight: 800; color: #00f2fe; }
+    .search-tv { flex: 1; }
+
+    /* LISTA CONTINUA DE CANALES TV1 */
+    #channels-container {
+      flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 5px;
+    }
+    .channel-row {
+      padding: 11px 12px; border-radius: 10px; background: rgba(255,255,255,0.04);
+      cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.88rem; border: 1px solid transparent;
+    }
+    .channel-row:hover, .channel-row:focus {
+      background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.25); outline: none;
+    }
+    .channel-row.active {
+      background: rgba(0, 242, 254, 0.2); border-color: #00f2fe;
+      color: #00f2fe; font-weight: 800;
+    }
+    .ch-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+    .fav-star { padding: 2px 6px; font-size: 1.1rem; color: #475569; cursor: pointer; }
+    .fav-star.is-fav { color: #fbbf24; }
+
+    /* BARRA INFERIOR DE CONTROL */
+    footer {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 60px; padding: 0 20px;
+      display: flex; justify-content: space-between; align-items: center;
+      background: linear-gradient(to top, rgba(3,7,18,0.95), rgba(3,7,18,0));
+      z-index: 30; pointer-events: none;
+    }
+    footer > * { pointer-events: auto; }
+
+    .nav-btn {
+      background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255, 255, 255, 0.15); color: #f8fafc;
+      padding: 8px 16px; border-radius: 20px; font-weight: 800; cursor: pointer; font-size: 0.82rem;
+    }
+    .nav-btn:active, .nav-btn:focus { background: #00f2fe; color: #000; border-color: #00f2fe; outline: none; }
+
+    #current-playing {
+      font-size: 0.88rem; color: #00f2fe; font-weight: 800;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45vw; text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- PANTALLA DE VIDEO -->
+  <div id="video-stage">
+    <video id="video-player" playsinline webkit-playsinline autoplay></video>
+  </div>
+
+  <!-- ENCABEZADO -->
+  <header>
+    <div class="brand-box">
+      <button class="btn-menu" id="btn-menu">☰ Menú</button>
+      <div class="brand-title">OKRU <span>TV</span></div>
+    </div>
+    <div class="header-right">
+      <span id="signal-status">● LISTO</span>
+      <div class="badge-mode">TV1 PRO</div>
+    </div>
+  </header>
+
+  <!-- PANEL DESPLEGABLE -->
+  <aside id="drawer">
+    <div class="load-box">
+      <button class="btn-primary" id="btn-load-local">📁 USB / Archivo Local M3U</button>
+      <input type="file" id="file-input" accept=".m3u,.m3u8,.txt,*" style="display:none">
+      
+      <div class="url-row">
+        <input type="text" class="input-dark" id="url-input" placeholder="Pegar URL de servidor remoto..." style="flex:1;">
+        <button class="btn-url" id="btn-load-url">Cargar</button>
+      </div>
+    </div>
+
+    <div class="filter-row">
+      <select class="input-dark select-tv" id="mode-select">
+        <option value="TV1">📺 TV1</option>
+        <option value="FAV">⭐ Favoritos</option>
+      </select>
+      <input type="text" class="input-dark search-tv" id="search-input" placeholder="Buscar canal...">
+    </div>
+
+    <div id="channels-container">
+      <div style="padding: 25px; text-align: center; color: #94a3b8; font-size: 0.85rem;">
+        Carga tu archivo desde USB/Local o ingresa cualquier enlace de servidor remoto para ver tus canales en TV1.
+      </div>
+    </div>
+  </aside>
+
+  <!-- BARRA INFERIOR -->
+  <footer>
+    <button class="nav-btn" id="btn-prev">⏮ Anterior</button>
+    <span id="current-playing">Sin señal</span>
+    <button class="nav-btn" id="btn-next">Siguiente ⏭</button>
+  </footer>
+
+  <script>
+    // Carga asíncrona no bloqueante de HLS.js para que la pantalla nunca quede en blanco
+    (function loadHlsAsync() {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js';
+      s.async = true;
+      document.body.appendChild(s);
+    })();
+
+    let allChannels = [];
+    let filteredChannels = [];
+    let favorites = [];
+    let currentIndex = -1;
+    let hls = null;
+    let retryTimer = null;
+
+    try {
+      allChannels = JSON.parse(localStorage.getItem('okru_cinematic_db') || '[]');
+      favorites = JSON.parse(localStorage.getItem('okru_cinematic_fav') || '[]');
+    } catch (e) {
+      allChannels = [];
+      favorites = [];
+    }
+
+    const drawer = document.getElementById('drawer');
+    const video = document.getElementById('video-player');
+    const container = document.getElementById('channels-container');
+    const currentLabel = document.getElementById('current-playing');
+    const statusLabel = document.getElementById('signal-status');
+    const modeSelect = document.getElementById('mode-select');
+    const searchInput = document.getElementById('search-input');
+    const fileInput = document.getElementById('file-input');
+    const urlInput = document.getElementById('url-input');
+
+    function toggleDrawer(force) {
+      if (typeof force === 'boolean') {
+        drawer.classList.toggle('collapsed', !force);
+      } else {
+        drawer.classList.toggle('collapsed');
+      }
+    }
+
+    document.getElementById('btn-menu').addEventListener('click', () => toggleDrawer());
+    document.getElementById('video-stage').addEventListener('click', () => toggleDrawer());
+
+    // 1. Carga USB / Archivo Local
+    document.getElementById('btn-load-local').addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      statusLabel.textContent = '● LEYENDO...';
+      statusLabel.style.color = '#fbbf24';
+
+      const reader = new FileReader();
+      reader.onload = (evt) => processM3UText(evt.target.result);
+      reader.onerror = () => {
+        statusLabel.textContent = '● ERROR ARCHIVO';
+        statusLabel.style.color = '#ef4444';
+      };
+      reader.readAsText(file);
+    });
+
+    // 2. Carga libre mediante URL de servidor remoto
+    document.getElementById('btn-load-url').addEventListener('click', async () => {
+      let targetUrl = urlInput.value.trim();
+      if (!targetUrl) {
+        alert('Pega una URL válida de servidor IPTV.');
+        return;
+      }
+
+      statusLabel.textContent = '● CONECTANDO URL...';
+      statusLabel.style.color = '#fbbf24';
+
+      try {
+        let response = await fetch(targetUrl);
+        if (!response.ok) throw new Error('Error HTTP');
+        let text = await response.text();
+        processM3UText(text);
+      } catch (err) {
+        try {
+          let proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(targetUrl);
+          let resProxy = await fetch(proxyUrl);
+          let textProxy = await resProxy.text();
+          processM3UText(textProxy);
+        } catch (err2) {
+          statusLabel.textContent = '● ERROR RED URL';
+          statusLabel.style.color = '#ef4444';
+          alert('No se pudo cargar la lista remota. Verifica el enlace.');
+        }
+      }
+    });
+
+    // Parser M3U respetando todos los duplicados en modo TV1
+    function processM3UText(text) {
+      const lines = text.split(/\r?\n/);
+      const parsed = [];
+      let title = 'Canal';
+
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
+        if (!line) continue;
+
+        if (line.startsWith('#EXTINF:')) {
+          let comma = line.lastIndexOf(',');
+          title = comma !== -1 ? line.substring(comma + 1).trim() : 'Canal';
+        } else if (!line.startsWith('#') && (line.startsWith('http://') || line.startsWith('https://') || line.startsWith('udp://'))) {
+          parsed.push({ title: title || 'Canal', url: line.split(' ')[0] });
+          title = 'Canal';
+        }
+      }
+
+      if (parsed.length > 0) {
+        allChannels = parsed;
+        try { localStorage.setItem('okru_cinematic_db', JSON.stringify(allChannels)); } catch (e) {}
+        renderList();
+        playChannel(0);
+        statusLabel.textContent = '● LISTO';
+        statusLabel.style.color = '#10b981';
+      } else {
+        statusLabel.textContent = '● LISTA VACÍA';
+        statusLabel.style.color = '#ef4444';
+        alert('No se encontraron canales válidos.');
+      }
+    }
+
+    function toggleFavorite(url, event) {
+      event.stopPropagation();
+      const idx = favorites.indexOf(url);
+      if (idx === -1) favorites.push(url);
+      else favorites.splice(idx, 1);
+      try { localStorage.setItem('okru_cinematic_fav', JSON.stringify(favorites)); } catch (e) {}
+      renderList();
+    }
+
+    function renderList() {
+      const mode = modeSelect.value;
+      const query = searchInput.value.toLowerCase().trim();
+
+      filteredChannels = allChannels.filter(ch => {
+        const matchMode = mode === 'FAV' ? favorites.includes(ch.url) : true;
+        const matchQuery = !query || ch.title.toLowerCase().includes(query);
+        return matchMode && matchQuery;
+      });
+
+      container.innerHTML = '';
+
+      if (filteredChannels.length === 0) {
+        container.innerHTML = '<div style="padding:20px; text-align:center; color:#94a3b8; font-size:0.85rem;">No hay canales para mostrar.</div>';
+        return;
+      }
+
+      const activeCh = filteredChannels[currentIndex];
+      const frag = document.createDocumentFragment();
+
+      filteredChannels.forEach((ch, idx) => {
+        const isFav = favorites.includes(ch.url);
+        const isActive = activeCh && activeCh.url === ch.url && idx === currentIndex;
+
+        const row = document.createElement('div');
+        row.className = 'channel-row' + (isActive ? ' active' : '');
+        row.tabIndex = 10 + idx;
+        row.innerHTML = `
+          <span class="ch-title">${idx + 1}. ${ch.title}</span>
+          <span class="fav-star ${isFav ? 'is-fav' : ''}">★</span>
+        `;
+
+        row.addEventListener('click', () => playChannel(idx));
+        row.addEventListener('keydown', (e) => { if (e.key === 'Enter') playChannel(idx); });
+        row.querySelector('.fav-star').addEventListener('click', (e) => toggleFavorite(ch.url, e));
+
+        frag.appendChild(row);
+      });
+
+      container.appendChild(frag);
+    }
+
+    // Reproductor estabilizado con anti-buffering y reconexión automática
+    function playChannel(idx) {
+      if (filteredChannels.length === 0) return;
+      if (idx < 0) idx = filteredChannels.length - 1;
+      if (idx >= filteredChannels.length) idx = 0;
+
+      currentIndex = idx;
+      const ch = filteredChannels[currentIndex];
+      currentLabel.textContent = `${currentIndex + 1}. ${ch.title}`;
+      statusLabel.textContent = '● CONECTANDO';
+      statusLabel.style.color = '#fbbf24';
+
+      renderList();
+
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+      if (hls) { hls.destroy(); hls = null; }
+
+      const isStream = ch.url.includes('.m3u8') || ch.url.includes('astra') || !ch.url.match(/\.(mp4|mkv|webm)$/i);
+
+      if (window.Hls && Hls.isSupported() && isStream) {
+        hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+          maxBufferLength: 30,
+          maxMaxBufferLength: 60,
+          maxBufferSize: 60 * 1000 * 1000,
+          maxBufferHole: 0.5,
+          liveSyncDurationCount: 3,
+          manifestLoadingMaxRetry: 6,
+          manifestLoadingRetryDelay: 1000,
+          levelLoadingMaxRetry: 6,
+          fragLoadingMaxRetry: 6
+        });
+
+        hls.loadSource(ch.url);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          video.play().catch(() => {});
+          statusLabel.textContent = '● EN VIVO';
+          statusLabel.style.color = '#10b981';
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            statusLabel.textContent = '● RECONECTANDO';
+            statusLabel.style.color = '#fbbf24';
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+            else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+            else retryTimer = setTimeout(() => playChannel(currentIndex), 2500);
+          }
+        });
+      } else {
+        video.src = ch.url;
+        video.play().then(() => {
+          statusLabel.textContent = '● EN VIVO';
+          statusLabel.style.color = '#10b981';
+        }).catch(() => {
+          statusLabel.textContent = '● REINTENTANDO';
+          statusLabel.style.color = '#fbbf24';
+          retryTimer = setTimeout(() => playChannel(currentIndex), 3000);
+        });
+      }
+    }
+
+    video.addEventListener('stalled', () => {
+      statusLabel.textContent = '● ESTABILIZANDO';
+      statusLabel.style.color = '#fbbf24';
+      if (hls) hls.startLoad();
+    });
+
+    video.addEventListener('playing', () => {
+      statusLabel.textContent = '● EN VIVO';
+      statusLabel.style.color = '#10b981';
+    });
+
+    document.getElementById('btn-prev').addEventListener('click', () => playChannel(currentIndex - 1));
+    document.getElementById('btn-next').addEventListener('click', () => playChannel(currentIndex + 1));
+    modeSelect.addEventListener('change', renderList);
+    searchInput.addEventListener('input', renderList);
+
+    // Control remoto D-Pad Smart TV Hisense
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ChannelUp' || e.key === 'PageUp') playChannel(currentIndex + 1);
+      if (e.key === 'ChannelDown' || e.key === 'PageDown') playChannel(currentIndex - 1);
+      if (e.key === 'Escape' || e.key === 'Backspace') {
+        if (document.activeElement !== searchInput && document.activeElement !== urlInput) {
+          toggleDrawer(false);
+        }
+      }
+    });
+
+    if (allChannels.length > 0) renderList();
+  </script>
+</body>
+</html>
