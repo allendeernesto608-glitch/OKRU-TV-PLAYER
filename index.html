@@ -1,1 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>OKRU TV - CINEMATIC PLAYER</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
+  <style>
+    :root {
+      --bg-deep: #030712;
+      --glass-panel: rgba(15, 23, 42, 0.75);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --neon-cyan: #00f2fe;
+      --neon-glow: rgba(0, 242, 254, 0.25);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
 
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+
+    body, html {
+      width: 100vw; height: 100vh;
+      background: var(--bg-deep); color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+    }
+
+    /* CONTENEDOR GENERAL CINEMATOGRÁFICO */
+    .app-container {
+      position: relative;
+      width: 100vw; height: 100vh;
+      display: flex; flex-direction: column;
+    }
+
+    /* CAPA DE VÍDEO A PANTALLA COMPLETA */
+    .video-stage {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      background: #000; z-index: 1;
+      display: flex; align-items: center; justify-content: center;
+    }
+    video {
+      width: 100%; height: 100%; object-fit: contain; background: #000;
+    }
+
+    /* INTERFAZ FLOTANTE SUPERIOR (HEADER) */
+    header {
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 70px; padding: 0 24px;
+      display: flex; justify-content: space-between; align-items: center;
+      background: linear-gradient(to bottom, rgba(3,7,18,0.9), rgba(3,7,18,0));
+      z-index: 30; pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    header > * { pointer-events: auto; }
+    
+    .brand-box { display: flex; align-items: center; gap: 12px; }
+    .brand-title {
+      font-size: 1.5rem; font-weight: 900; letter-spacing: 1.5px;
+      color: var(--text-main); text-shadow: 0 0 20px var(--neon-glow);
+    }
+    .brand-title span { color: var(--neon-cyan); }
+    .badge-mode {
+      background: rgba(0, 242, 254, 0.1); color: var(--neon-cyan);
+      padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;
+      border: 1px solid rgba
