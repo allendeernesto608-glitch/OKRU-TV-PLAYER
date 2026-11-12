@@ -1,1 +1,1058 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>OKRU TV - Smart Streaming</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #00e5ff;
+      --accent: #ff2a6d;
+      --fav: #ffd600;
+      --glass-bg: rgba(10, 14, 23, 0.45);
+      --glass-border: rgba(255, 255, 255, 0.14);
+      --text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      outline: none;
+      font-family: 'Outfit', 'Segoe UI', sans-serif;
+    }
+
+    body, html {
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      color: #fff;
+      overflow: hidden;
+    }
+
+    /* REPRODUCTOR DE VIDEO PANTALLA COMPLETA */
+    #player-wrapper {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+
+    /* INDICADOR DE ESTADO / BUFFERING */
+    .status-badge {
+      position: fixed;
+      top: 24px;
+      right: 28px;
+      z-index: 30;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--glass-border);
+      padding: 8px 16px;
+      border-radius: 30px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: opacity 0.3s ease;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #00e676;
+      box-shadow: 0 0 10px #00e676;
+    }
+    .dot.loading { background: var(--fav); box-shadow: 0 0 10px var(--fav); animation: pulse 1s infinite; }
+    .dot.error { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.5; }
+    }
+
+    /* MENÚ DESPLEGABLE TRANSPARENTE */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 420px;
+      max-width: 85vw;
+      height: 100vh;
+      z-index: 20;
+      background: linear-gradient(90deg, rgba(5, 8, 15, 0.78) 0%, rgba(5, 8, 15, 0.35) 75%, rgba(5, 8, 15, 0) 100%);
+      backdrop-filter: blur(4px);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 20px;
+      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+    }
+
+    .sidebar.hidden {
+      transform: translateX(-105%);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* MARCA OKRU TV */
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      padding-left: 6px;
+    }
+
+    .brand-title {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-shadow: var(--text-shadow);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-title span {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .live-pill {
+      font-size: 0.7rem;
+      background: var(--accent);
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+
+    /* BOTONERA SUPERIOR DEL MENÚ */
+    .quick-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .action-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--glass-border);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-shadow: var(--text-shadow);
+      transition: all 0.2s ease;
+    }
+
+    .action-btn:hover, .action-btn:focus, .action-btn.focused {
+      background: rgba(0, 229, 255, 0.25);
+      border-color: var(--primary);
+      transform: scale(1.03);
+      box-shadow: 0 0 15px rgba(0, 229, 255, 0.35);
+    }
+
+    /* FILTRO Y BUSCADOR */
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .glass-input, .glass-select {
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid var(--glass-border);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      width: 100%;
+    }
+
+    .glass-select option {
+      background: #101522;
+      color: #fff;
+    }
+
+    .glass-input:focus, .glass-select:focus, .focused {
+      border-color: var(--primary);
+      box-shadow: 0 0 12px rgba(0, 229, 255, 0.4);
+    }
+
+    /* LISTA TRANSPARENTE DE CANALES (RESALTA SOLO NOMBRES) */
+    .channel-list {
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.25) transparent;
+    }
+
+    .channel-list::-webkit-scrollbar { width: 5px; }
+    .channel-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 10px; }
+
+    .channel-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 14px;
+      border-radius: 10px;
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .channel-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      overflow: hidden;
+      flex: 1;
+    }
+
+    .channel-num {
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: rgba(255, 255, 255, 0.55);
+      text-shadow: var(--text-shadow);
+      min-width: 28px;
+    }
+
+    .channel-name {
+      font-size: 1.08rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.88);
+      text-shadow: var(--text-shadow);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: all 0.18s ease;
+    }
+
+    /* RESALTADO DEL NOMBRE AL PASAR/ENFOCAR/REPRODUCIR */
+    .channel-item:hover .channel-name,
+    .channel-item:focus .channel-name,
+    .channel-item.focused .channel-name {
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 1.15rem;
+      text-shadow: 0 0 12px rgba(0, 229, 255, 0.9), 0 2px 6px #000;
+      transform: translateX(4px);
+    }
+
+    .channel-item.active .channel-name {
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 1.14rem;
+      text-shadow: 0 0 14px rgba(0, 229, 255, 0.75), 0 2px 6px #000;
+    }
+
+    .channel-item.active .channel-num {
+      color: var(--primary);
+    }
+
+    .fav-star {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.35);
+      font-size: 1.25rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      text-shadow: var(--text-shadow);
+      transition: transform 0.2s, color 0.2s;
+    }
+
+    .fav-star:hover { transform: scale(1.25); }
+    .fav-star.active { color: var(--fav); text-shadow: 0 0 10px rgba(255, 214, 0, 0.8); }
+
+    /* PESTAÑAS INFERIORES CENTRALES (RETROCEDER / AVANZAR) */
+    .bottom-center-tabs {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(0);
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: rgba(10, 14, 24, 0.65);
+      backdrop-filter: blur(12px);
+      padding: 8px 14px;
+      border-radius: 50px;
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75);
+      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+    }
+
+    .bottom-center-tabs.hidden {
+      transform: translateX(-50%) translateY(120px);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .nav-tab-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 40px;
+      font-size: 0.98rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      text-shadow: var(--text-shadow);
+    }
+
+    .nav-tab-btn:hover, .nav-tab-btn:focus, .nav-tab-btn.focused {
+      background: linear-gradient(135deg, var(--primary), #0091ea);
+      color: #000;
+      text-shadow: none;
+      border-color: #fff;
+      transform: scale(1.06);
+      box-shadow: 0 0 20px rgba(0, 229, 255, 0.6);
+    }
+
+    .now-playing-pill {
+      max-width: 240px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--primary);
+      padding: 0 10px;
+      text-align: center;
+    }
+
+    /* MODAL DE CARGA DE SERVIDORES Y LISTAS EN TV */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(4, 7, 13, 0.88);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-backdrop.hidden { display: none; }
+
+    .modal-box {
+      width: 640px;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow-y: auto;
+      background: #121826;
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      border-radius: 18px;
+      padding: 26px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h2 {
+      font-size: 1.35rem;
+      color: var(--primary);
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 8px;
+    }
+
+    .preset-chip {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #e0e6ed;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      text-align: left;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: all 0.2s;
+    }
+
+    .preset-chip:hover, .preset-chip:focus {
+      background: rgba(0, 229, 255, 0.2);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    textarea.glass-input {
+      min-height: 90px;
+      resize: vertical;
+      font-family: monospace;
+      font-size: 0.82rem;
+    }
+
+    .modal-footer {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- REPRODUCTOR DE VIDEO -->
+  <div id="player-wrapper">
+    <video id="video" playsinline autoplay></video>
+  </div>
+
+  <!-- INDICADOR DE ESTADO -->
+  <div class="status-badge" id="status-badge">
+    <div class="dot" id="status-dot"></div>
+    <span id="status-text">OKRU TV Listo</span>
+  </div>
+
+  <!-- MENÚ DESPLEGABLE TRANSPARENTE -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-title">OKRU <span>TV</span></div>
+      <div class="live-pill">ULTRA STREAM</div>
+    </div>
+
+    <div class="quick-actions">
+      <button class="action-btn focusable" id="btn-open-sources">🌐 Servidores / URL</button>
+      <button class="action-btn focusable" id="btn-local-file">📁 Archivo TV / USB</button>
+      <input type="file" id="file-input" accept=".m3u,.m3u8,.txt,.astra,*/*" style="display:none">
+    </div>
+
+    <div class="filter-row">
+      <select class="glass-select focusable" id="category-select" style="width: 48%;">
+        <option value="ALL">📺 Todos</option>
+        <option value="FAV">⭐ Favoritos</option>
+      </select>
+      <input type="text" class="glass-input focusable" id="search-input" placeholder="🔍 Buscar canal..." style="width: 52%;">
+    </div>
+
+    <div class="channel-list" id="channel-list"></div>
+  </aside>
+
+  <!-- PESTAÑAS INFERIORES CENTRALES (AVANZAR Y RETROCEDER) -->
+  <div class="bottom-center-tabs" id="bottom-tabs">
+    <button class="nav-tab-btn focusable" id="btn-prev-channel">⏮ Retroceder</button>
+    <div class="now-playing-pill" id="now-playing-label">Sin canal activo</div>
+    <button class="nav-tab-btn focusable" id="btn-next-channel">Avanzar ⏭</button>
+  </div>
+
+  <!-- MODAL GESTOR DE LISTAS Y SERVIDORES EN EL TELEVISOR -->
+  <div class="modal-backdrop hidden" id="source-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>📡 Cargar Lista, Servidor o Astra en TV</h2>
+        <button class="action-btn focusable" id="btn-close-modal" style="padding: 6px 12px;">✕</button>
+      </div>
+
+      <label style="font-size:0.85rem; color:#9fb3c8;">Ingresa URL (M3U, M3U8, Astra, IP:Puerto, GitHub, Blogspot):</label>
+      <input type="text" class="glass-input focusable" id="url-input" placeholder="Ej: http://190.60.39.220:8000/ o https://...">
+
+      <label style="font-size:0.82rem; color:#9fb3c8;">⚡ Acceso Rápido a Servidores y Listas Guardadas:</label>
+      <div class="preset-grid" id="preset-grid"></div>
+
+      <details style="margin-top:4px;">
+        <summary style="cursor:pointer; font-size:0.85rem; color:var(--primary); font-weight:600;">📋 Pegar contenido M3U / Astra directo (Si el TV bloquea archivos)</summary>
+        <div style="margin-top:8px; display:flex; flex-direction:column; gap:8px;">
+          <textarea class="glass-input" id="raw-m3u-input" placeholder="#EXTM3U&#10;#EXTINF:-1,Canal HD&#10;http://servidor:8000/live/stream.m3u8"></textarea>
+          <button class="action-btn focusable" id="btn-parse-raw">Procesar Texto Pegado</button>
+        </div>
+      </details>
+
+      <div class="modal-footer">
+        <button class="action-btn focusable" id="btn-load-url" style="background: linear-gradient(135deg, var(--primary), #0091ea); color:#000; border:none;">🚀 Conectar y Cargar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- SERVIDORES PRECONFIGURADOS Y GUARDADOS ---
+    const DEFAULT_SERVERS = [
+      { name: "IPTV-Org Global", url: "https://iptv-org.github.io/iptv/index.m3u" },
+      { name: "IPTV-Org Español", url: "https://iptv-org.github.io/iptv/languages/spa.m3u" },
+      { name: "Lista TV Flix HD 2026", url: "https://listatvflixhd2026.blogspot.com" },
+      { name: "Cablemax HLS", url: "http://cablemaxsigloxxi.com:8000/playlist.m3u?hls" },
+      { name: "Cablemax Root", url: "http://cablemaxsigloxxi.com:8000/" },
+      { name: "Servidor 190.60.39.220", url: "http://190.60.39.220:8000/" },
+      { name: "Servidor 170.244.209.30", url: "http://170.244.209.30:8000/" },
+      { name: "Servidor 38.188.48.83", url: "http://38.188.48.83:8000/" }
+    ];
+
+    // Estado de la aplicación
+    let allChannels = JSON.parse(localStorage.getItem('okru_channels') || '[]');
+    let favorites = JSON.parse(localStorage.getItem('okru_favorites') || '[]');
+    let customServers = JSON.parse(localStorage.getItem('okru_servers') || '[]');
+    let currentChannelIndex = -1;
+    let filteredChannels = [];
+    let hls = null;
+    let clickTimer = null;
+    let reconnectTimer = null;
+
+    // Elementos DOM
+    const video = document.getElementById('video');
+    const sidebar = document.getElementById('sidebar');
+    const bottomTabs = document.getElementById('bottom-tabs');
+    const playerWrapper = document.getElementById('player-wrapper');
+    const channelListEl = document.getElementById('channel-list');
+    const categorySelect = document.getElementById('category-select');
+    const searchInput = document.getElementById('search-input');
+    const nowPlayingLabel = document.getElementById('now-playing-label');
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const sourceModal = document.getElementById('source-modal');
+    const urlInput = document.getElementById('url-input');
+
+    // --- 1. CONTROL DE MENÚ Y PESTAÑAS (1 CLIC MUESTRA / DOBLE CLIC OCULTA) ---
+    function showMenuAndTabs() {
+      sidebar.classList.remove('hidden');
+      bottomTabs.classList.remove('hidden');
+    }
+
+    function hideMenuAndTabs() {
+      sidebar.classList.add('hidden');
+      bottomTabs.classList.add('hidden');
+    }
+
+    playerWrapper.addEventListener('click', (e) => {
+      if (clickTimer === null) {
+        clickTimer = setTimeout(() => {
+          clickTimer = null;
+          showMenuAndTabs();
+        }, 260);
+      } else {
+        clearTimeout(clickTimer);
+        clickTimer = null;
+        hideMenuAndTabs();
+      }
+    });
+
+    // --- 2. ESTADO VISUAL DE TRANSMISIÓN ---
+    function setStatus(state, message) {
+      statusDot.className = 'dot ' + state;
+      statusText.textContent = message;
+    }
+
+    // --- 3. MOTOR DE REPRODUCCIÓN DE ALTA ESTABILIDAD Y RECONEXIÓN ---
+    function playChannelByIndex(index) {
+      if (filteredChannels.length === 0) return;
+      if (index < 0) index = filteredChannels.length - 1;
+      if (index >= filteredChannels.length) index = 0;
+
+      currentChannelIndex = index;
+      const channel = filteredChannels[currentChannelIndex];
+      if (!channel) return;
+
+      nowPlayingLabel.textContent = `${currentChannelIndex + 1}. ${channel.title}`;
+      setStatus('loading', `Conectando: ${channel.title}`);
+      renderChannelList();
+
+      startStream(channel.url, channel.title, false);
+    }
+
+    function startStream(streamUrl, title, useProxyFallback = false) {
+      clearTimeout(reconnectTimer);
+      if (hls) {
+        hls.destroy();
+        hls = null;
+      }
+
+      // Si estamos en HTTPS (GitHub Pages) y el stream es HTTP, usar proxy si falla directo
+      let finalUrl = streamUrl.trim();
+      if (useProxyFallback) {
+        finalUrl = `https://corsproxy.io/?${encodeURIComponent(streamUrl)}`;
+      }
+
+      const isHlsLike = finalUrl.includes('.m3u8') || 
+                        finalUrl.includes('hls') || 
+                        finalUrl.includes('/live/') || 
+                        finalUrl.includes('astra') ||
+                        (!finalUrl.endsWith('.mp4') && !finalUrl.endsWith('.mkv'));
+
+      if (Hls.isSupported() && isHlsLike) {
+        hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+          backBufferLength: 30,
+          maxBufferLength: 20,
+          maxMaxBufferLength: 40,
+          manifestLoadingTimeOut: 12000,
+          manifestLoadingMaxRetry: 4,
+          levelLoadingTimeOut: 12000,
+          fragLoadingTimeOut: 15000,
+          fragLoadingMaxRetry: 6
+        });
+
+        hls.loadSource(finalUrl);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          video.play().catch(() => {});
+          setStatus('', `En vivo: ${title}`);
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+              if (!useProxyFallback && window.location.protocol === 'https:' && streamUrl.startsWith('http://')) {
+                setStatus('loading', 'Adaptando túnel seguro...');
+                startStream(streamUrl, title, true);
+              } else {
+                setStatus('loading', 'Reconectando señal...');
+                hls.startLoad();
+              }
+            } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+              hls.recoverMediaError();
+            } else {
+              // Fallback a reproductor nativo HTML5
+              hls.destroy();
+              video.src = finalUrl;
+              video.play().catch(() => setStatus('error', 'Canal sin señal temporal'));
+            }
+          }
+        });
+      } else {
+        video.src = finalUrl;
+        video.play()
+          .then(() => setStatus('', `Reproduciendo: ${title}`))
+          .catch(() => {
+            if (!useProxyFallback) {
+              startStream(streamUrl, title, true);
+            } else {
+              setStatus('error', 'Formato o servidor no disponible');
+            }
+          });
+      }
+    }
+
+    video.addEventListener('playing', () => setStatus('', `En vivo: ${nowPlayingLabel.textContent}`));
+    video.addEventListener('waiting', () => setStatus('loading', 'Estabilizando buffer...'));
+
+    // --- 4. PESTAÑAS INFERIORES: RETROCEDER Y AVANZAR ---
+    document.getElementById('btn-prev-channel').addEventListener('click', (e) => {
+      e.stopPropagation();
+      playChannelByIndex(currentChannelIndex - 1);
+    });
+
+    document.getElementById('btn-next-channel').addEventListener('click', (e) => {
+      e.stopPropagation();
+      playChannelByIndex(currentChannelIndex + 1);
+    });
+
+    // --- 5. PARSER AVANZADO: M3U, M3U8, ASTRA, SERVIDORES IP Y EXTRACCIÓN WEB ---
+    function parseAnyPlaylist(rawText, sourceUrl = '') {
+      const lines = rawText.split(/\r?\n/);
+      const parsed = [];
+      let currentMeta = null;
+
+      // Caso A: Formato M3U / M3U8 / Astra estándar
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        if (line.startsWith('#EXTINF:')) {
+          const commaIdx = line.lastIndexOf(',');
+          const title = commaIdx !== -1 ? line.substring(commaIdx + 1).trim() : 'Canal TV';
+          const groupMatch = line.match(/group-title="([^"]*)"/i);
+          currentMeta = {
+            title: title || 'Canal sin nombre',
+            group: groupMatch && groupMatch[1] ? groupMatch[1].trim() : 'General'
+          };
+        } else if (!line.startsWith('#') && (line.startsWith('http://') || line.startsWith('https://') || line.startsWith('udp://') || line.startsWith('rtp://'))) {
+          // Limpiar etiquetas Astra como #udp:// o #astra
+          const cleanUrl = line.split(' ')[0].trim();
+          parsed.push({
+            title: currentMeta ? currentMeta.title : extractNameFromUrl(cleanUrl, parsed.length + 1),
+            group: currentMeta ? currentMeta.group : 'Servidores',
+            url: cleanUrl
+          });
+          currentMeta = null;
+        }
+      }
+
+      // Caso B: Si es un JSON de Astra API (/api/v1/stream o similar)
+      if (parsed.length === 0 && rawText.trim().startsWith('{') || rawText.trim().startsWith('[')) {
+        try {
+          const json = JSON.parse(rawText);
+          const items = Array.isArray(json) ? json : (json.streams || json.channels || []);
+          items.forEach((item, idx) => {
+            if (item.url || item.stream_url || item.http_url) {
+              parsed.push({
+                title: item.name || item.title || `Astra Stream ${idx + 1}`,
+                group: item.category || 'Astra Server',
+                url: item.url || item.stream_url || item.http_url
+              });
+            }
+          });
+        } catch (e) {}
+      }
+
+      // Caso C: Si es una página web / Blogspot con enlaces incrustados
+      if (parsed.length === 0) {
+        const urlRegex = /(https?:\/\/[^\s"'<>]+\.(?:m3u8|m3u|ts|mp4)[^\s"'<>]*)/gi;
+        const matches = rawText.match(urlRegex);
+        if (matches) {
+          [...new Set(matches)].forEach((u, idx) => {
+            parsed.push({
+              title: extractNameFromUrl(u, idx + 1),
+              group: 'Web / Blog',
+              url: u
+            });
+          });
+        }
+      }
+
+      return parsed;
+    }
+
+    function extractNameFromUrl(url, index) {
+      try {
+        const parts = url.split('/').filter(Boolean);
+        const last = parts[parts.length - 1].split('?')[0];
+        return last && last.length > 2 ? decodeURIComponent(last) : `Canal ${index}`;
+      } catch {
+        return `Canal ${index}`;
+      }
+    }
+
+    // --- 6. CONECTOR UNIVERSAL DE SERVIDORES Y URLs (CON AUTO-DETECCIÓN ASTRA/IP) ---
+    async function fetchWithSmartProxy(targetUrl) {
+      const proxies = [
+        (u) => u, // Intento directo primero
+        (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+        (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`
+      ];
+
+      for (const buildUrl of proxies) {
+        try {
+          const controller = new AbortController();
+          const id = setTimeout(() => controller.abort(), 9000);
+          const response = await fetch(buildUrl(targetUrl), { signal: controller.signal });
+          clearTimeout(id);
+          if (response.ok) {
+            const text = await response.text();
+            if (text && text.length > 10) return text;
+          }
+        } catch (err) {
+          // Probar siguiente método
+        }
+      }
+      throw new Error('No se pudo obtener respuesta del servidor');
+    }
+
+    async function loadFromUrl(inputUrl) {
+      let cleanUrl = inputUrl.trim();
+      if (!cleanUrl) return;
+      if (!/^https?:\/\//i.test(cleanUrl)) cleanUrl = 'http://' + cleanUrl;
+
+      setStatus('loading', 'Explorando servidor...');
+
+      // Rutas candidatas si el usuario ingresa solo la IP:Puerto (ej: http://190.60.39.220:8000/)
+      const candidateUrls = [cleanUrl];
+      if (cleanUrl.endsWith('/') || /:\d+$/.test(cleanUrl)) {
+        const base = cleanUrl.replace(/\/+$/, '');
+        candidateUrls.push(
+          `${base}/playlist.m3u8`,
+          `${base}/playlist.m3u`,
+          `${base}/playlist.m3u?hls`,
+          `${base}/channels.m3u`,
+          `${base}/astra.m3u`
+        );
+      }
+
+      let loadedChannels = [];
+
+      for (const candidate of candidateUrls) {
+        try {
+          const content = await fetchWithSmartProxy(candidate);
+          const found = parseAnyPlaylist(content, candidate);
+          if (found.length > 0) {
+            loadedChannels = found;
+            break;
+          }
+        } catch (e) {}
+      }
+
+      // Si no es una lista sino un enlace de transmisión directa (stream único)
+      if (loadedChannels.length === 0) {
+        loadedChannels = [{
+          title: `Stream Directo (${cleanUrl.replace(/^https?:\/\//, '').slice(0, 22)})`,
+          group: 'Directo',
+          url: cleanUrl
+        }];
+      }
+
+      allChannels = loadedChannels;
+      localStorage.setItem('okru_channels', JSON.stringify(allChannels));
+      saveCustomServer(cleanUrl);
+      updateCategories();
+      renderChannelList();
+      sourceModal.classList.add('hidden');
+      setStatus('', `${allChannels.length} canales cargados`);
+
+      if (allChannels.length > 0) {
+        playChannelByIndex(0);
+      }
+    }
+
+    // --- 7. RENDERIZADO DE LISTA TRANSPARENTE Y FAVORITOS ---
+    function toggleFavorite(url, event) {
+      if (event) event.stopPropagation();
+      const idx = favorites.indexOf(url);
+      if (idx === -1) favorites.push(url);
+      else favorites.splice(idx, 1);
+      localStorage.setItem('okru_favorites', JSON.stringify(favorites));
+      updateCategories();
+      renderChannelList();
+    }
+
+    function updateCategories() {
+      const currentVal = categorySelect.value;
+      const groups = [...new Set(allChannels.map(c => c.group).filter(Boolean))];
+      categorySelect.innerHTML = `
+        <option value="ALL">📺 Todos (${allChannels.length})</option>
+        <option value="FAV">⭐ Favoritos (${favorites.length})</option>
+      `;
+      groups.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g;
+        opt.textContent = g;
+        categorySelect.appendChild(opt);
+      });
+      if ([...categorySelect.options].some(o => o.value === currentVal)) {
+        categorySelect.value = currentVal;
+      }
+    }
+
+    function renderChannelList() {
+      const selectedCat = categorySelect.value;
+      const query = searchInput.value.toLowerCase().trim();
+
+      filteredChannels = allChannels.filter(ch => {
+        const matchCat = selectedCat === 'ALL' ? true :
+                         selectedCat === 'FAV' ? favorites.includes(ch.url) :
+                         ch.group === selectedCat;
+        const matchQuery = !query || ch.title.toLowerCase().includes(query);
+        return matchCat && matchQuery;
+      });
+
+      channelListEl.innerHTML = '';
+
+      if (filteredChannels.length === 0) {
+        channelListEl.innerHTML = `<div style="padding:20px; color:rgba(255,255,255,0.6); font-size:0.9rem;">No hay canales en esta vista. Carga una lista desde "Servidores / URL" o "Archivo TV".</div>`;
+        return;
+      }
+
+      const activeChannel = filteredChannels[currentChannelIndex];
+
+      filteredChannels.forEach((ch, idx) => {
+        const isFav = favorites.includes(ch.url);
+        const isActive = activeChannel && activeChannel.url === ch.url;
+
+        const row = document.createElement('div');
+        row.className = `channel-item focusable ${isActive ? 'active' : ''}`;
+        row.tabIndex = 0;
+
+        row.innerHTML = `
+          <div class="channel-title-wrap">
+            <span class="channel-num">${idx + 1}</span>
+            <span class="channel-name">${ch.title}</span>
+          </div>
+          <button class="fav-star ${isFav ? 'active' : ''}" title="Favorito">★</button>
+        `;
+
+        row.addEventListener('click', (e) => {
+          e.stopPropagation();
+          playChannelByIndex(idx);
+        });
+
+        row.querySelector('.fav-star').addEventListener('click', (e) => toggleFavorite(ch.url, e));
+        channelListEl.appendChild(row);
+      });
+    }
+
+    // --- 8. GESTIÓN DEL MODAL Y ARCHIVOS LOCALES EN TV ---
+    function saveCustomServer(url) {
+      if (!DEFAULT_SERVERS.some(s => s.url === url) && !customServers.some(s => s.url === url)) {
+        customServers.unshift({ name: url.replace(/^https?:\/\//, '').slice(0, 26), url });
+        customServers = customServers.slice(0, 8);
+        localStorage.setItem('okru_servers', JSON.stringify(customServers));
+      }
+      renderPresets();
+    }
+
+    function renderPresets() {
+      const grid = document.getElementById('preset-grid');
+      grid.innerHTML = '';
+      const combined = [...customServers, ...DEFAULT_SERVERS];
+      combined.forEach(srv => {
+        const btn = document.createElement('button');
+        btn.className = 'preset-chip focusable';
+        btn.textContent = srv.name;
+        btn.title = srv.url;
+        btn.addEventListener('click', () => {
+          urlInput.value = srv.url;
+          loadFromUrl(srv.url);
+        });
+        grid.appendChild(btn);
+      });
+    }
+
+    document.getElementById('btn-open-sources').addEventListener('click', (e) => {
+      e.stopPropagation();
+      renderPresets();
+      sourceModal.classList.remove('hidden');
+      urlInput.focus();
+    });
+
+    document.getElementById('btn-close-modal').addEventListener('click', () => {
+      sourceModal.classList.add('hidden');
+    });
+
+    document.getElementById('btn-load-url').addEventListener('click', () => {
+      loadFromUrl(urlInput.value);
+    });
+
+    document.getElementById('btn-parse-raw').addEventListener('click', () => {
+      const raw = document.getElementById('raw-m3u-input').value;
+      const found = parseAnyPlaylist(raw);
+      if (found.length > 0) {
+        allChannels = found;
+        localStorage.setItem('okru_channels', JSON.stringify(allChannels));
+        updateCategories();
+        renderChannelList();
+        sourceModal.classList.add('hidden');
+        playChannelByIndex(0);
+      } else {
+        alert('No se detectaron enlaces válidos en el texto.');
+      }
+    });
+
+    // Carga desde almacenamiento local del Televisor / USB
+    document.getElementById('btn-local-file').addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('file-input').click();
+    });
+
+    document.getElementById('file-input').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const found = parseAnyPlaylist(ev.target.result, file.name);
+        if (found.length > 0) {
+          allChannels = found;
+          localStorage.setItem('okru_channels', JSON.stringify(allChannels));
+          updateCategories();
+          renderChannelList();
+          setStatus('', `Cargado: ${file.name}`);
+          playChannelByIndex(0);
+        } else {
+          setStatus('error', 'Archivo sin canales válidos');
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    categorySelect.addEventListener('change', renderChannelList);
+    searchInput.addEventListener('input', renderChannelList);
+
+    // --- 9. SOPORTE MANDO A DISTANCIA HISENSE (D-PAD / CH+ / CH- / BACK) ---
+    document.addEventListener('keydown', (e) => {
+      if (!sourceModal.classList.contains('hidden')) {
+        if (e.key === 'Escape' || e.key === 'Backspace') sourceModal.classList.add('hidden');
+        return;
+      }
+
+      switch (e.key) {
+        case 'ChannelUp':
+        case 'PageUp':
+          playChannelByIndex(currentChannelIndex + 1);
+          break;
+        case 'ChannelDown':
+        case 'PageDown':
+          playChannelByIndex(currentChannelIndex - 1);
+          break;
+        case 'ArrowRight':
+          if (sidebar.classList.contains('hidden')) playChannelByIndex(currentChannelIndex + 1);
+          break;
+        case 'ArrowLeft':
+          if (sidebar.classList.contains('hidden')) playChannelByIndex(currentChannelIndex - 1);
+          break;
+        case 'Enter':
+          if (sidebar.classList.contains('hidden')) showMenuAndTabs();
+          break;
+        case 'Escape':
+        case 'Backspace':
+          if (document.activeElement !== searchInput) {
+            hideMenuAndTabs();
+          }
+          break;
+        case 'f':
+        case 'F':
+          if (filteredChannels[currentChannelIndex]) {
+            toggleFavorite(filteredChannels[currentChannelIndex].url);
+          }
+          break;
+      }
+    });
+
+    // --- INICIALIZACIÓN ---
+    renderPresets();
+    if (allChannels.length > 0) {
+      updateCategories();
+      renderChannelList();
+    } else {
+      // Carga inicial automática con IPTV-Org en español para que el TV tenga señal de inmediato
+      loadFromUrl("https://iptv-org.github.io/iptv/languages/spa.m3u");
+    }
+  </script>
+</body>
+</html>
 
