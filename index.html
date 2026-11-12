@@ -1,1 +1,659 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>OKRU TV - Professional Edition</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cyan: #00f2fe;
+      --pink: #ff007f;
+      --gold: #ffd700;
+      --glass: rgba(4, 7, 12, 0.88);
+      --border: rgba(255, 255, 255, 0.12);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      outline: none;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    body, html {
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    #video-box {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+
+    .status-pill {
+      position: fixed;
+      top: 20px;
+      right: 24px;
+      z-index: 35;
+      background: rgba(10, 14, 22, 0.75);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      padding: 7px 16px;
+      border-radius: 30px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+    }
+    .dot.load { background: var(--gold); box-shadow: 0 0 10px var(--gold); animation: blink 0.8s infinite alternate; }
+    .dot.err { background: var(--pink); box-shadow: 0 0 10px var(--pink); }
+
+    @keyframes blink {
+      from { opacity: 0.4; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1.3); }
+    }
+
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 410px;
+      max-width: 88vw;
+      height: 100vh;
+      z-index: 30;
+      background: linear-gradient(90deg, rgba(4, 7, 12, 0.96) 0%, rgba(4, 7, 12, 0.75) 75%, rgba(4, 7, 12, 0) 100%);
+      backdrop-filter: blur(14px);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 20px;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+      border-right: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .sidebar.hidden {
+      transform: translateX(-105%);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .brand h1 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.9);
+    }
+
+    .brand h1 span {
+      background: linear-gradient(135deg, var(--cyan), var(--pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .badge {
+      font-size: 0.68rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover, .btn:focus {
+      background: rgba(0, 242, 254, 0.2);
+      border-color: var(--cyan);
+      box-shadow: 0 0 12px rgba(0, 242, 254, 0.3);
+    }
+
+    .filters {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .input-ui, .select-ui {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      width: 100%;
+    }
+
+    .select-ui option { background: #0c101d; }
+
+    .input-ui:focus, .select-ui:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
+    }
+
+    .channels-viewport {
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.2) transparent;
+    }
+
+    .channel-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 12px;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .channel-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      overflow: hidden;
+      flex: 1;
+    }
+
+    .channel-num {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.4);
+      min-width: 26px;
+    }
+
+    .channel-title {
+      font-size: 1.02rem;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.82);
+      text-shadow: 0 2px 5px rgba(0,0,0,0.9);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: all 0.15s ease;
+    }
+
+    .channel-row:hover .channel-title,
+    .channel-row:focus .channel-title {
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 1.08rem;
+      text-shadow: 0 0 12px rgba(0, 242, 254, 0.9), 0 2px 4px #000;
+      transform: translateX(3px);
+    }
+
+    .channel-row.active .channel-title {
+      color: var(--cyan);
+      font-weight: 700;
+      font-size: 1.08rem;
+      text-shadow: 0 0 12px rgba(0, 242, 254, 0.8), 0 2px 4px #000;
+    }
+
+    .channel-row.active .channel-num {
+      color: var(--cyan);
+      font-weight: 800;
+    }
+
+    .star-btn {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.25);
+      font-size: 1.15rem;
+      cursor: pointer;
+      padding: 4px 6px;
+    }
+
+    .star-btn.active { color: var(--gold); text-shadow: 0 0 10px rgba(255, 215, 0, 0.8); }
+
+    .bottom-bar {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(0);
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(10, 14, 22, 0.8);
+      backdrop-filter: blur(12px);
+      padding: 7px 14px;
+      border-radius: 40px;
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+    }
+
+    .bottom-bar.hidden {
+      transform: translateX(-50%) translateY(100px);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .nav-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.18s ease;
+    }
+
+    .nav-btn:hover, .nav-btn:focus {
+      background: linear-gradient(135deg, var(--cyan), #0088ff);
+      color: #000;
+      border-color: #fff;
+      transform: scale(1.05);
+      box-shadow: 0 0 15px rgba(0, 242, 254, 0.5);
+    }
+
+    .playing-label {
+      max-width: 220px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--cyan);
+      padding: 0 6px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="video-box">
+    <video id="video-player" playsinline autoplay></video>
+  </div>
+
+  <div class="status-pill" id="status-pill">
+    <div class="dot" id="status-dot"></div>
+    <span id="status-text">OKRU TV Listo</span>
+  </div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <h1>OKRU <span>TV</span></h1>
+      <div class="badge">PLAYER</div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="btn-load-file">📁 Cargar M3U, M3U8, Astra o Local</button>
+      <input type="file" id="file-input" accept=".m3u,.m3u8,.txt,*" style="display:none">
+    </div>
+
+    <div class="filters">
+      <select class="select-ui" id="category-select" style="width: 45%;">
+        <option value="TV1">📺 TV1</option>
+        <option value="FAV">⭐ Favoritos</option>
+      </select>
+      <input type="text" class="input-ui" id="search-input" placeholder="🔍 Buscar canal..." style="width: 55%;">
+    </div>
+
+    <div class="channels-viewport" id="channels-viewport"></div>
+  </aside>
+
+  <div class="bottom-bar" id="bottom-bar">
+    <button class="nav-btn" id="btn-prev">⏮ Anterior</button>
+    <div class="playing-label" id="playing-label">Ningún canal</div>
+    <button class="nav-btn" id="btn-next">Siguiente ⏭</button>
+  </div>
+
+  <script>
+    let allChannels = JSON.parse(localStorage.getItem('okru_channels_v4') || '[]');
+    let favoriteUrls = JSON.parse(localStorage.getItem('okru_favs_v4') || '[]');
+    let activeIndex = -1;
+    let visibleChannels = [];
+    let hlsInstance = null;
+    let clickTimer = null;
+
+    const videoEl = document.getElementById('video-player');
+    const sidebarEl = document.getElementById('sidebar');
+    const bottomBarEl = document.getElementById('bottom-bar');
+    const videoBox = document.getElementById('video-box');
+    const channelsViewport = document.getElementById('channels-viewport');
+    const categorySelect = document.getElementById('category-select');
+    const searchInput = document.getElementById('search-input');
+    const playingLabel = document.getElementById('playing-label');
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const fileInput = document.getElementById('file-input');
+
+    // Control menú (1 clic muestra / doble clic oculta)
+    videoBox.addEventListener('click', (e) => {
+      if (clickTimer === null) {
+        clickTimer = setTimeout(() => {
+          clickTimer = null;
+          sidebarEl.classList.remove('hidden');
+          bottomBarEl.classList.remove('hidden');
+        }, 250);
+      } else {
+        clearTimeout(clickTimer);
+        clickTimer = null;
+        sidebarEl.classList.add('hidden');
+        bottomBarEl.classList.add('hidden');
+      }
+    });
+
+    function setStatus(state, msg) {
+      statusDot.className = 'dot ' + state;
+      statusText.textContent = msg;
+    }
+
+    // Motor HLS con estabilidad antivideobuffer y tolerancia a duplicados
+    function playChannel(idx) {
+      if (visibleChannels.length === 0) return;
+      if (idx < 0) idx = visibleChannels.length - 1;
+      if (idx >= visibleChannels.length) idx = 0;
+
+      activeIndex = idx;
+      const ch = visibleChannels[activeIndex];
+      if (!ch) return;
+
+      playingLabel.textContent = `${activeIndex + 1}. ${ch.title}`;
+      setStatus('load', `Cargando: ${ch.title}`);
+      renderList();
+
+      startStream(ch.url, ch.title, false);
+    }
+
+    function startStream(url, title, useProxy) {
+      if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+      }
+
+      let target = url.trim();
+      if (useProxy) {
+        target = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+      }
+
+      const isHls = target.includes('.m3u8') || target.includes('hls') || target.includes('/live/') || target.includes('astra') || (!target.endsWith('.mp4') && !target.endsWith('.ts'));
+
+      if (Hls.isSupported() && isHls) {
+        hlsInstance = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+          backBufferLength: 20,
+          maxBufferLength: 15,
+          maxMaxBufferLength: 30,
+          manifestLoadingTimeOut: 12000,
+          manifestLoadingMaxRetry: 4,
+          fragLoadingTimeOut: 15000,
+          fragLoadingMaxRetry: 6
+        });
+
+        hlsInstance.loadSource(target);
+        hlsInstance.attachMedia(videoEl);
+
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+          videoEl.play().catch(() => {});
+          setStatus('', `En vivo: ${title}`);
+        });
+
+        hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+              if (!useProxy && window.location.protocol === 'https:' && url.startsWith('http://')) {
+                startStream(url, title, true);
+              } else {
+                hlsInstance.startLoad();
+              }
+            } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+              hlsInstance.recoverMediaError();
+            } else {
+              hlsInstance.destroy();
+              videoEl.src = target;
+              videoEl.play().catch(() => setStatus('err', 'Señal no disponible'));
+            }
+          }
+        });
+      } else {
+        videoEl.src = target;
+        videoEl.play()
+          .then(() => setStatus('', `Reproduciendo: ${title}`))
+          .catch(() => {
+            if (!useProxy) startStream(url, title, true);
+            else setStatus('err', 'Servidor inaccesible');
+          });
+      }
+    }
+
+    videoEl.addEventListener('playing', () => setStatus('', `En vivo: ${playingLabel.textContent}`));
+    videoEl.addEventListener('waiting', () => setStatus('load', 'Estabilizando señal...'));
+
+    document.getElementById('btn-prev').addEventListener('click', (e) => {
+      e.stopPropagation();
+      playChannel(activeIndex - 1);
+    });
+
+    document.getElementById('btn-next').addEventListener('click', (e) => {
+      e.stopPropagation();
+      playChannel(activeIndex + 1);
+    });
+
+    // Parser M3U / M3U8 / Astra manteniendo duplicados estrictamente en TV1
+    function parsePlaylist(text) {
+      const lines = text.split(/\r?\n/);
+      const list = [];
+      let title = 'Canal';
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        if (line.startsWith('#EXTINF:')) {
+          const comma = line.lastIndexOf(',');
+          title = comma !== -1 ? line.substring(comma + 1).trim() : 'Canal';
+        } else if (!line.startsWith('#') && (line.startsWith('http://') || line.startsWith('https://') || line.startsWith('udp://'))) {
+          list.push({
+            title: title || 'Canal',
+            group: 'TV1',
+            url: line.split(' ')[0].trim()
+          });
+          title = 'Canal';
+        }
+      }
+      return list;
+    }
+
+    function toggleFav(url, e) {
+      if (e) e.stopPropagation();
+      const p = favoriteUrls.indexOf(url);
+      if (p === -1) favoriteUrls.push(url);
+      else favoriteUrls.splice(p, 1);
+      localStorage.setItem('okru_favs_v4', JSON.stringify(favoriteUrls));
+      renderList();
+    }
+
+    function renderList() {
+      const cat = categorySelect.value;
+      const q = searchInput.value.toLowerCase().trim();
+
+      visibleChannels = allChannels.filter(ch => {
+        const matchCat = cat === 'FAV' ? favoriteUrls.includes(ch.url) : true;
+        const matchQ = !q || ch.title.toLowerCase().includes(q);
+        return matchCat && matchQ;
+      });
+
+      channelsViewport.innerHTML = '';
+
+      if (visibleChannels.length === 0) {
+        channelsViewport.innerHTML = `<div style="padding:16px; color:var(--muted); font-size:0.85rem;">Carga una lista o archivo local para ver las señales en TV1.</div>`;
+        return;
+      }
+
+      const activeCh = visibleChannels[activeIndex];
+      const fragment = document.createDocumentFragment();
+      const limit = Math.min(visibleChannels.length, 500);
+
+      for (let i = 0; i < limit; i++) {
+        const ch = visibleChannels[i];
+        const isFav = favoriteUrls.includes(ch.url);
+        const isActive = activeCh && activeCh.url === ch.url;
+
+        const row = document.createElement('div');
+        row.className = `channel-row ${isActive ? 'active' : ''}`;
+        row.tabIndex = 0;
+
+        row.innerHTML = `
+          <div class="channel-meta">
+            <span class="channel-num">${i + 1}</span>
+            <span class="channel-title">${ch.title}</span>
+          </div>
+          <button class="star-btn ${isFav ? 'active' : ''}">★</button>
+        `;
+
+        row.addEventListener('click', (e) => {
+          e.stopPropagation();
+          playChannel(i);
+        });
+
+        row.querySelector('.star-btn').addEventListener('click', (e) => toggleFav(ch.url, e));
+        fragment.appendChild(row);
+      }
+
+      channelsViewport.appendChild(fragment);
+    }
+
+    document.getElementById('btn-load-file').addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const parsed = parsePlaylist(ev.target.result);
+        if (parsed.length > 0) {
+          allChannels = parsed; // Ingresa todo en TV1 en un solo listado sin separar categorías
+          localStorage.setItem('okru_channels_v4', JSON.stringify(allChannels));
+          renderList();
+          setStatus('', `Cargado en TV1: ${file.name} (${allChannels.length} señales)`);
+          playChannel(0);
+        } else {
+          setStatus('err', 'El archivo no contiene canales válidos');
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    categorySelect.addEventListener('change', renderList);
+    searchInput.addEventListener('input', renderList);
+
+    // Control remoto TV
+    document.addEventListener('keydown', (e) => {
+      switch (e.key) {
+        case 'ChannelUp':
+        case 'PageUp':
+          playChannel(activeIndex + 1);
+          break;
+        case 'ChannelDown':
+        case 'PageDown':
+          playChannel(activeIndex - 1);
+          break;
+        case 'ArrowRight':
+          if (sidebar.classList.contains('hidden')) playChannel(activeIndex + 1);
+          break;
+        case 'ArrowLeft':
+          if (sidebar.classList.contains('hidden')) playChannel(activeIndex - 1);
+          break;
+        case 'Enter':
+          if (sidebar.classList.contains('hidden')) {
+            sidebar.classList.remove('hidden');
+            bottomBar.classList.remove('hidden');
+          }
+          break;
+        case 'Escape':
+        case 'Backspace':
+          if (document.activeElement !== searchInput) {
+            sidebar.classList.add('hidden');
+            bottomBar.classList.add('hidden');
+          }
+          break;
+        case 'f':
+        case 'F':
+          if (visibleChannels[activeIndex]) toggleFav(visibleChannels[activeIndex].url);
+          break;
+      }
+    });
+
+    if (allChannels.length > 0) {
+      renderList();
+    }
+  </script>
+</body>
+</html>
 
