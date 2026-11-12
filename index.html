@@ -1,1 +1,425 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>OKRU TV PLAYER - TV1 PRO</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, html {
+      width: 100vw; height: 100vh;
+      background: #070a12; color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    /* BARRA SUPERIOR */
+    header {
+      background: #0d1322;
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      z-index: 30;
+      flex-shrink: 0;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .btn-toggle {
+      background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2);
+      padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.9rem;
+    }
+    .btn-toggle:focus, .btn-toggle:hover { background: #00f2fe; color: #000; outline: none; }
+    .brand { font-size: 1.2rem; font-weight: 800; color: #00f2fe; letter-spacing: 0.5px; }
+    .status-group { display: flex; align-items: center; gap: 8px; }
+    .badge-tv1 { background: rgba(0,242,254,0.15); color: #00f2fe; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; border: 1px solid rgba(0,242,254,0.3); }
+    #signal-status { font-size: 0.75rem; color: #10b981; font-weight: bold; }
+
+    /* ÁREA PRINCIPAL (RESPONSIVA CELULAR / TV) */
+    .workspace {
+      flex: 1; display: flex; flex-direction: row; position: relative; overflow: hidden; width: 100%; height: 100%;
+    }
+
+    /* PANEL DESPLEGABLE IZQUIERDO */
+    .drawer {
+      width: 360px; max-width: 85vw; height: 100%;
+      background: rgba(13, 19, 34, 0.96);
+      border-right: 1px solid rgba(255,255,255,0.12);
+      display: flex; flex-direction: column; padding: 12px; gap: 10px;
+      z-index: 20; transition: margin-left 0.25s ease, transform 0.25s ease;
+      flex-shrink: 0;
+    }
+    .drawer.collapsed {
+      margin-left: -360px;
+    }
+    @media (max-width: 768px) {
+      .drawer { position: absolute; top: 0; left: 0; bottom: 0; margin-left: 0; }
+      .drawer.collapsed { transform: translateX(-100%); margin-left: 0; }
+    }
+
+    /* BOTÓN CARGA USB / LOCAL */
+    .btn-usb {
+      background: linear-gradient(135deg, #00f2fe, #0088ff);
+      color: #000; border: none; padding: 12px; border-radius: 8px;
+      font-weight: 800; cursor: pointer; text-align: center; font-size: 0.9rem;
+      width: 100%; flex-shrink: 0;
+    }
+    .btn-usb:focus, .btn-usb:hover { filter: brightness(1.15); outline: 2px solid #fff; }
+
+    /* FILTROS Y BUSCADOR */
+    .filter-row { display: flex; gap: 6px; flex-shrink: 0; }
+    .select-mode, .search-box {
+      background: #070a12; border: 1px solid rgba(255,255,255,0.2); color: #fff;
+      padding: 8px 10px; border-radius: 6px; font-size: 0.85rem;
+    }
+    .select-mode { width: 115px; font-weight: bold; }
+    .search-box { flex: 1; }
+    .select-mode:focus, .search-box:focus { border-color: #00f2fe; outline: none; }
+
+    /* LISTA CONTINUA TV1 */
+    .channels-scroll {
+      flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 2px;
+    }
+    .channel-row {
+      padding: 11px 12px; border-radius: 6px; background: rgba(255,255,255,0.03);
+      cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.9rem; border: 1px solid transparent; transition: background 0.15s;
+    }
+    .channel-row:hover, .channel-row:focus {
+      background: rgba(255, 255, 255, 0.12); border-color: rgba(255,255,255,0.3); outline: none;
+    }
+    .channel-row.active {
+      background: rgba(0, 242, 254, 0.2); border-color: #00f2fe; color: #00f2fe; font-weight: bold;
+    }
+    .ch-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+    .fav-star { padding: 2px 6px; font-size: 1.1rem; color: #475569; }
+    .fav-star.is-fav { color: #fbbf24; }
+
+    /* ÁREA DE REPRODUCCIÓN */
+    .stage {
+      flex: 1; background: #000; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+
+    /* BARRA INFERIOR DE NAVEGACIÓN */
+    footer {
+      background: #0d1322; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center;
+      border-top: 1px solid rgba(255,255,255,0.1); z-index: 30; flex-shrink: 0;
+    }
+    .nav-btn {
+      background: #1a233a; color: #fff; border: 1px solid rgba(255,255,255,0.15);
+      padding: 8px 18px; border-radius: 20px; font-weight: bold; cursor: pointer; font-size: 0.85rem;
+    }
+    .nav-btn:focus, .nav-btn:hover { background: #00f2fe; color: #000; outline: none; }
+    #current-playing {
+      font-size: 0.9rem; color: #00f2fe; font-weight: bold;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45vw; text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <button class="btn-toggle" id="btn-menu" tabindex="1">☰ Lista</button>
+      <div class="brand">OKRU TV</div>
+    </div>
+    <div class="status-group">
+      <span id="signal-status">● LISTO</span>
+      <div class="badge-tv1">TV1</div>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <!-- MENÚ DESPLEGABLE -->
+    <aside class="drawer" id="drawer">
+      <button class="btn-usb" id="btn-load" tabindex="2">📁 Cargar Lista (USB / Local M3U)</button>
+      <input type="file" id="file-input" accept=".m3u,.m3u8,.txt,*" style="display:none">
+
+      <div class="filter-row">
+        <select class="select-mode" id="mode-select" tabindex="3">
+          <option value="TV1">📺 TV1</option>
+          <option value="FAV">⭐ Favoritos</option>
+        </select>
+        <input type="text" class="search-box" id="search-input" placeholder="Buscar canal..." tabindex="4">
+      </div>
+
+      <div class="channels-scroll" id="channels-container">
+        <div style="padding: 20px; text-align: center; color: #64748b; font-size: 0.85rem;">
+          Conecta tu USB o selecciona tu archivo M3U/M3U8 para cargar los canales en TV1.
+        </div>
+      </div>
+    </aside>
+
+    <!-- PANTALLA DE VIDEO -->
+    <main class="stage" id="video-stage">
+      <video id="video-player" playsinline webkit-playsinline autoplay></video>
+    </main>
+  </div>
+
+  <footer>
+    <button class="nav-btn" id="btn-prev" tabindex="5">⏮ Anterior</button>
+    <span id="current-playing">Sin señal</span>
+    <button class="nav-btn" id="btn-next" tabindex="6">Siguiente ⏭</button>
+  </footer>
+
+  <script>
+    let allChannels = [];
+    let filteredChannels = [];
+    let favorites = [];
+    let currentIndex = -1;
+    let hls = null;
+    let retryTimer = null;
+
+    // Carga segura de memoria local sin bloquear el arranque
+    try {
+      allChannels = JSON.parse(localStorage.getItem('okru_tv1_db') || '[]');
+      favorites = JSON.parse(localStorage.getItem('okru_tv1_fav') || '[]');
+    } catch (e) {
+      allChannels = [];
+      favorites = [];
+    }
+
+    const drawer = document.getElementById('drawer');
+    const video = document.getElementById('video-player');
+    const container = document.getElementById('channels-container');
+    const currentLabel = document.getElementById('current-playing');
+    const statusLabel = document.getElementById('signal-status');
+    const modeSelect = document.getElementById('mode-select');
+    const searchInput = document.getElementById('search-input');
+    const fileInput = document.getElementById('file-input');
+
+    // Desplegar / Ocultar menú
+    function toggleDrawer(forceState) {
+      if (typeof forceState === 'boolean') {
+        drawer.classList.toggle('collapsed', !forceState);
+      } else {
+        drawer.classList.toggle('collapsed');
+      }
+    }
+
+    document.getElementById('btn-menu').addEventListener('click', () => toggleDrawer());
+    document.getElementById('video-stage').addEventListener('click', () => toggleDrawer());
+
+    // Selector USB / Local
+    document.getElementById('btn-load').addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      statusLabel.textContent = '● LEYENDO...';
+      statusLabel.style.color = '#fbbf24';
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        parseM3U(evt.target.result);
+      };
+      reader.onerror = function() {
+        statusLabel.textContent = '● ERROR ARCHIVO';
+        statusLabel.style.color = '#ef4444';
+      };
+      reader.readAsText(file);
+    });
+
+    // Parser M3U/M3U8/Astra que preserva duplicados y orden exacto
+    function parseM3U(text) {
+      const lines = text.split(/\r?\n/);
+      const parsed = [];
+      let title = 'Canal';
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        if (line.startsWith('#EXTINF:')) {
+          const comma = line.lastIndexOf(',');
+          title = comma !== -1 ? line.substring(comma + 1).trim() : 'Canal';
+        } else if (!line.startsWith('#') && (line.startsWith('http://') || line.startsWith('https://') || line.startsWith('udp://'))) {
+          parsed.push({
+            title: title || 'Canal',
+            url: line.split(' ')[0]
+          });
+          title = 'Canal';
+        }
+      }
+
+      if (parsed.length > 0) {
+        allChannels = parsed;
+        try { localStorage.setItem('okru_tv1_db', JSON.stringify(allChannels)); } catch (e) {}
+        renderList();
+        playChannel(0);
+      } else {
+        statusLabel.textContent = '● LISTA VACÍA';
+        statusLabel.style.color = '#ef4444';
+      }
+    }
+
+    function toggleFavorite(url, event) {
+      event.stopPropagation();
+      const idx = favorites.indexOf(url);
+      if (idx === -1) favorites.push(url);
+      else favorites.splice(idx, 1);
+      try { localStorage.setItem('okru_tv1_fav', JSON.stringify(favorites)); } catch (e) {}
+      renderList();
+    }
+
+    function renderList() {
+      const mode = modeSelect.value;
+      const query = searchInput.value.toLowerCase().trim();
+
+      filteredChannels = allChannels.filter(ch => {
+        const matchMode = mode === 'FAV' ? favorites.includes(ch.url) : true;
+        const matchQuery = !query || ch.title.toLowerCase().includes(query);
+        return matchMode && matchQuery;
+      });
+
+      container.innerHTML = '';
+
+      if (filteredChannels.length === 0) {
+        container.innerHTML = '<div style="padding:16px; text-align:center; color:#64748b; font-size:0.85rem;">No hay canales para mostrar.</div>';
+        return;
+      }
+
+      const activeCh = filteredChannels[currentIndex];
+      const frag = document.createDocumentFragment();
+
+      filteredChannels.forEach((ch, idx) => {
+        const isFav = favorites.includes(ch.url);
+        const isActive = activeCh && activeCh.url === ch.url && idx === currentIndex;
+
+        const row = document.createElement('div');
+        row.className = 'channel-row' + (isActive ? ' active' : '');
+        row.tabIndex = 10 + idx;
+        row.innerHTML = `
+          <span class="ch-name">${idx + 1}. ${ch.title}</span>
+          <span class="fav-star ${isFav ? 'is-fav' : ''}">★</span>
+        `;
+
+        row.addEventListener('click', () => playChannel(idx));
+        row.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') playChannel(idx);
+        });
+        row.querySelector('.fav-star').addEventListener('click', (e) => toggleFavorite(ch.url, e));
+
+        frag.appendChild(row);
+      });
+
+      container.appendChild(frag);
+    }
+
+    // Motor de reproducción estable anti-buffering con reconexión automática
+    function playChannel(idx) {
+      if (filteredChannels.length === 0) return;
+      if (idx < 0) idx = filteredChannels.length - 1;
+      if (idx >= filteredChannels.length) idx = 0;
+
+      currentIndex = idx;
+      const ch = filteredChannels[currentIndex];
+      currentLabel.textContent = `${currentIndex + 1}. ${ch.title}`;
+      statusLabel.textContent = '● CONECTANDO';
+      statusLabel.style.color = '#fbbf24';
+
+      renderList();
+
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+
+      if (hls) {
+        hls.destroy();
+        hls = null;
+      }
+
+      const isStream = ch.url.includes('.m3u8') || ch.url.includes('astra') || !ch.url.match(/\.(mp4|mkv|webm)$/i);
+
+      if (window.Hls && Hls.isSupported() && isStream) {
+        hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+          maxBufferLength: 30,
+          maxMaxBufferLength: 60,
+          maxBufferSize: 60 * 1000 * 1000,
+          maxBufferHole: 0.5,
+          liveSyncDurationCount: 3,
+          manifestLoadingMaxRetry: 6,
+          manifestLoadingRetryDelay: 1000,
+          levelLoadingMaxRetry: 6,
+          fragLoadingMaxRetry: 6
+        });
+
+        hls.loadSource(ch.url);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          video.play().catch(() => {});
+          statusLabel.textContent = '● EN VIVO';
+          statusLabel.style.color = '#10b981';
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            statusLabel.textContent = '● RECONECTANDO';
+            statusLabel.style.color = '#fbbf24';
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+              hls.startLoad();
+            } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+              hls.recoverMediaError();
+            } else {
+              retryTimer = setTimeout(() => playChannel(currentIndex), 2500);
+            }
+          }
+        });
+      } else {
+        video.src = ch.url;
+        video.play().then(() => {
+          statusLabel.textContent = '● EN VIVO';
+          statusLabel.style.color = '#10b981';
+        }).catch(() => {
+          statusLabel.textContent = '● REINTENTANDO';
+          statusLabel.style.color = '#fbbf24';
+          retryTimer = setTimeout(() => playChannel(currentIndex), 3000);
+        });
+      }
+    }
+
+    // Detección de congelamiento nativo para auto-recuperar transmisión
+    video.addEventListener('stalled', () => {
+      statusLabel.textContent = '● ESTABILIZANDO';
+      statusLabel.style.color = '#fbbf24';
+      if (hls) hls.startLoad();
+    });
+
+    video.addEventListener('playing', () => {
+      statusLabel.textContent = '● EN VIVO';
+      statusLabel.style.color = '#10b981';
+    });
+
+    document.getElementById('btn-prev').addEventListener('click', () => playChannel(currentIndex - 1));
+    document.getElementById('btn-next').addEventListener('click', () => playChannel(currentIndex + 1));
+    modeSelect.addEventListener('change', renderList);
+    searchInput.addEventListener('input', renderList);
+
+    // Control remoto Smart TV Hisense (D-Pad y teclas de canal)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ChannelUp' || e.key === 'PageUp') {
+        playChannel(currentIndex + 1);
+      } else if (e.key === 'ChannelDown' || e.key === 'PageDown') {
+        playChannel(currentIndex - 1);
+      } else if (e.key === 'Escape' || e.key === 'Backspace') {
+        if (document.activeElement !== searchInput) {
+          toggleDrawer(false);
+        }
+      }
+    });
+
+    // Inicialización inmediata si ya había una lista guardada
+    if (allChannels.length > 0) {
+      renderList();
+    }
+  </script>
+</body>
+</html>
 
