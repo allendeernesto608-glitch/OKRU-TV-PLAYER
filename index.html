@@ -1,1 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Plaza de la Dignidad TV</title>
+<link href="https://googleapis.com" rel="stylesheet">
+<script src="https://jsdelivr.net"></script>
+<style>
+:root{--glass:rgba(24,20,18,.82);--border:rgba(255,248,235,.16);--terra:#c2410c;--cream:#fde68a;--txt:#fafaf9;--muted:#d6d3d1}
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background-color:#0c0a09;font-family:'Plus Jakarta Sans',sans-serif;color:var(--txt)}
+#backdrop{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;background:radial-gradient(circle at 75% 40%,#2e1a12 0%,#14100e 55%,#090807 100%)}
+#player{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;cursor:pointer}
+video{width:100%;height:100%;object-fit:contain;pointer-events:none}
+#clock{position:fixed;top:22px;right:26px;z-index:18;background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--border);padding:7px 14px;border-radius:10px;display:flex;align-items:center;gap:9px;font-size:.85rem;font-weight:600;color:var(--muted);transition:opacity .3s;pointer-events:none}
+#clock.hidden{opacity:0}
+.dot{width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444}
+#menu{position:fixed;top:0;left:0;width:390px;max-width:85vw;height:100vh;z-index:20;background:var(--glass);backdrop-filter:blur(20px) saturate(130%);-webkit-backdrop-filter:blur(20px) saturate(130%);border-right:1px solid var(--border);box-shadow:16px 0 48px rgba(0,0,0,.7);display:flex;flex-direction:column;padding:30px 22px 22px 26px;transition:transform .35s cubic-bezier(.22,1,.36,1),opacity .25s}
+#menu.hidden{transform:translateX(-105%);opacity:0;pointer-events:none}
+.header{margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.title{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.5rem;line-height:1.08;text-transform:uppercase;color:#fff}
+.title span{color:#fb923c}
+.slogan{font-family:'Playfair Display',serif;font-style:italic;font-size:1.25rem;color:var(--cream);margin-top:6px}
+#list{flex:1;overflow-y:auto;padding-right:4px;display:flex;flex-direction:column;gap:9px;scrollbar-width:thin}
+.item{display:flex;align-items:center;gap:14px;padding:13px 15px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid transparent;cursor:pointer;transition:.2s}
+.item.focused,.item:hover{background:linear-gradient(90deg,rgba(194,65,12,.75),rgba(234,88,12,.3));border-color:rgba(251,146,60,.75);transform:translateX(5px)}
+.item.active{border-left:4px solid var(--cream)}
+.num{font-family:'Montserrat',sans-serif;font-weight:800;color:var(--cream);min-width:25px}
+.name{font-weight:600;font-size:.98rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff}
+.cat{font-size:.76rem;color:var(--muted);margin-top:2px}
+.footer{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:.74rem;color:var(--muted)}
+.key{background:rgba(255,255,255,.12);padding:2px 6px;border-radius:4px;color:var(--cream);font-weight:700;margin-right:3px}
+#osd{position:fixed;bottom:28px;right:26px;z-index:15;background:var(--glass);backdrop-filter:blur(16px);border:1px solid var(--border);padding:12px 18px;border-radius:12px;display:flex;align-items:center;gap:12px;opacity:0;transform:translateY(15px);transition:.3s;pointer-events:none;max-width:85vw}
+#osd.visible{opacity:1;transform:translateY(0)}
+.ind{width:10px;height:10px;min-width:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px #22c55e}
+.ind.load{background:#f59e0b;box-shadow:0 0 10px #f59e0b}
+.ind.err{background:#ef4444;box-shadow:0 0 10px #ef4444}
+</style>
+</head>
 
