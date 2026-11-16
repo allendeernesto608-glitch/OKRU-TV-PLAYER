@@ -38,4 +38,101 @@ video{width:100%;height:100%;object-fit:contain;pointer-events:none}
 .ind.err{background:#ef4444;box-shadow:0 0 10px #ef4444}
 </style>
 </head>
+  <body>
+<div id="backdrop"></div>
+<div id="player"><video id="vid" playsinline autoplay muted></video></div>
+<div id="clock"><span class="dot"></span><span>EN VIVO</span><span style="opacity:.4">|</span><span id="time">--:--</span></div>
+<div id="osd"><div id="ind" class="ind"></div><div style="overflow:hidden"><div id="osd-t" style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sintonizando...</div><div id="osd-s" style="font-size:.78rem;color:var(--muted)">Plaza de la Dignidad TV</div></div></div>
+<aside id="menu">
+<header class="header"><h1 class="title">PLAZA DE LA DIGNIDAD <span>TV</span></h1><p class="slogan">“La historia es nuestra”</p></header>
+<div id="list" role="listbox"></div>
+<footer class="footer"><span><span class="key">OK/Toque</span>Menú</span><span><span class="key">▲▼</span>Mover</span><span><span class="key">CH+/-</span>Zapping</span></footer>
+</aside>
+<script>
+const CHANNELS=[
+{n:"01",name:"Señal Principal • Documental",cat:"Memoria y Territorio • HD",url:"https://mux.dev"},
+{n:"02",name:"Informativo & Actualidad",cat:"Prensa Independiente • 24/7",url:"https://akamaized.net"},
+{n:"03",name:"Cine y Archivo Histórico",cat:"Cultura Latinoamericana",url:"https://unified-streaming.com"},
+{n:"04",name:"Música y Canto Popular",cat:"Arte Comunitario",url:"https://apple.com"}
+];
+const vid=document.getElementById('vid'),player=document.getElementById('player'),menu=document.getElementById('menu'),clk=document.getElementById('clock'),timeEl=document.getElementById('time'),listEl=document.getElementById('list'),osd=document.getElementById('osd'),osdT=document.getElementById('osd-t'),osdS=document.getElementById('osd-s'),ind=document.getElementById('ind');
+let hls=null,cur=0,foc=0,open=true,timer=null,tries=0;
+const isLocal=window.location.protocol==='file:';
+const CFG={enableWorker:!isLocal,lowLatencyMode:false,maxBufferLength:30,maxMaxBufferLength:60,maxBufferSize:60000000,startLevel:-1,capLevelToPlayerSize:true,manifestLoadingTimeOut:10000,fragLoadingMaxRetry:4,levelLoadingMaxRetry:4};
+function updateClock(){timeEl.textContent=new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})}
+setInterval(updateClock,1000);updateClock();
+function render(){
+listEl.innerHTML='';
+CHANNELS.forEach((c,i)=>{
+const d=document.createElement('div');
+d.className='item'+(i===foc?' focused':'')+(i===cur?' active':'');
+d.innerHTML=`<span class="num">${c.n}</span><div style="overflow:hidden"><div class="name">${c.name}</div><div class="cat">${c.cat}</div></div>`;
+d.onclick=e=>{e.stopPropagation();foc=i;vid.muted=false;play(i,true)};
+listEl.appendChild(d);
+});
+}
+function updateUI(){
+document.querySelectorAll('.item').forEach((el,i)=>{
+el.classList.toggle('focused',i===foc);
+el.classList.toggle('active',i===cur);
+if(i===foc)el.scrollIntoView({behavior:'smooth',block:'nearest'});
+});
+}
+function toggle(state){
+open=typeof state==='boolean'?state:!open;
+if(open){foc=cur;updateUI();menu.classList.remove('hidden');clk.classList.remove('hidden')}
+else{menu.classList.add('hidden');clk.classList.add('hidden')}
+}
+function showOSD(c,txt,st='live'){
+osdT.textContent=`${c.n} • ${c.name}`;osdS.textContent=txt;
+ind.className='ind'+(st==='load'?' load':st==='err'?' err':'');
+osd.classList.add('visible');clearTimeout(timer);
+timer=setTimeout(()=>osd.classList.remove('visible'),3500);
+}
+function play(i,close=true){
+if(i<0)i=CHANNELS.length-1;if(i>=CHANNELS.length)i=0;
+cur=i;foc=i;tries=0;const c=CHANNELS[i];
+updateUI();showOSD(c,'Sintonizando señal...','load');
+if(close)toggle(false);
+if(hls){hls.stopLoad();hls.detachMedia();hls.destroy();hls=null}
+if(typeof Hls!=='undefined'&&Hls.isSupported()){
+hls=new Hls(CFG);hls.loadSource(c.url);hls.attachMedia(vid);
+hls.on(Hls.Events.MANIFEST_PARSED,()=>{
+vid.play().catch(()=>{vid.muted=true;vid.play()});
+showOSD(c,vid.muted?'Toca la pantalla o presiona OK para sonido':'Señal estable • En vivo');
+});
+hls.on(Hls.Events.ERROR,(e,d)=>{
+if(d.fatal){
+if(d.type===Hls.ErrorTypes.NETWORK_ERROR&&tries<3){tries++;showOSD(c,`Reconectando (${tries}/3)...`,'load');hls.startLoad()}
+else if(d.type===Hls.ErrorTypes.MEDIA_ERROR){showOSD(c,'Optimizando video...','load');hls.recoverMediaError()}
+else{showOSD(c,'Señal sin respuesta','err');hls.destroy()}
+}
+});
+}else if(vid.canPlayType('application/vnd.apple.mpegurl')){
+vid.src=c.url;vid.addEventListener('loadedmetadata',()=>{vid.play();showOSD(c,'Señal estable • En vivo')},{once:true});
+}else{
+showOSD(c,'Reproductor HLS no disponible','err');
+}
+}
+player.addEventListener('click',()=>{
+if(vid.muted){vid.muted=false;showOSD(CHANNELS[cur],'Audio activado')}
+toggle();
+});
+document.addEventListener('keydown',e=>{
+const k=e.key,kc=e.keyCode;
+if(k==='Enter'||kc===13){e.preventDefault();vid.muted=false;open?play(foc,true):toggle(true)}
+else if(k==='ChannelUp'||k==='PageUp'||kc===427||kc===33){e.preventDefault();vid.muted=false;play(cur+1,true)}
+else if(k==='ChannelDown'||k==='PageDown'||kc===428||kc===34){e.preventDefault();vid.muted=false;play(cur-1,true)}
+else if(k==='ArrowUp'||kc===38){e.preventDefault();if(open){foc=(foc-1+CHANNELS.length)%CHANNELS.length;updateUI()}else{vid.muted=false;play(cur-1,true)}}
+else if(k==='ArrowDown'||kc===40){e.preventDefault();if(open){foc=(foc+1)%CHANNELS.length;updateUI()}else{vid.muted=false;play(cur+1,true)}}
+else if(k==='ArrowLeft'||kc===37){if(!open)toggle(true)}
+else if(k==='ArrowRight'||k==='Escape'||k==='Backspace'||kc===39||kc===27||kc===461||kc===10009){if(open){e.preventDefault();toggle(false)}}
+else if(k.toLowerCase()==='m'){vid.muted=!vid.muted;showOSD(CHANNELS[cur],vid.muted?'Audio silenciado':'Audio activado')}
+});
+render();
+play(0,false);
+</script>
+</body>
+</html>
+
 
