@@ -1,1 +1,1460 @@
 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101820">
+<title>PLAZA DE LA DIGNIDAD TV</title>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js"></script>
+
+<style>
+:root {
+  --silver: #e6edf3;
+  --silver-bright: #ffffff;
+  --silver-dark: #9eacba;
+  --bg: #101820;
+  --panel: rgba(22, 34, 48, .96);
+  --line: rgba(224, 235, 245, .28);
+  --text: #f5f7fa;
+  --muted: #bdc8d3;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #080e15;
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+
+#app {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(130,160,185,.34), transparent 48%),
+    radial-gradient(ellipse at 85% 85%, rgba(180,195,210,.18), transparent 42%),
+    linear-gradient(135deg, #101820, #26394b 48%, #101820);
+}
+
+#video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+#splash {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  text-align: center;
+  background:
+    radial-gradient(ellipse at 20% 15%, rgba(150,180,205,.35), transparent 52%),
+    radial-gradient(ellipse at 80% 85%, rgba(210,220,230,.20), transparent 48%),
+    linear-gradient(135deg, #111c27, #354b60 52%, #111a24);
+  transition: opacity .8s ease;
+}
+
+#splash.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash-content {
+  max-width: 950px;
+  animation: appear 1.2s ease both;
+}
+
+.brand {
+  font-size: clamp(30px, 7vw, 76px);
+  line-height: 1.08;
+  font-weight: 900;
+  letter-spacing: .045em;
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #dce5ed 23%,
+    #ffffff 42%,
+    #9daebd 62%,
+    #f7fbff 80%,
+    #a9b7c5 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 3px 2px rgba(0,0,0,.55))
+          drop-shadow(0 0 16px rgba(220,235,248,.34));
+}
+
+.brand-line {
+  width: min(390px, 70vw);
+  height: 2px;
+  margin: 25px auto;
+  background: linear-gradient(90deg, transparent, #fff, #aab9c8, #fff, transparent);
+  box-shadow: 0 0 12px rgba(255,255,255,.6);
+}
+
+.slogan {
+  color: #f1f5f8;
+  font-weight: 900;
+  font-size: clamp(15px, 3vw, 26px);
+  letter-spacing: .14em;
+  text-shadow: 0 2px 14px rgba(255,255,255,.25);
+}
+
+.splash-hint {
+  margin-top: 42px;
+  color: #dce4ec;
+  font-size: 12px;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+#clock {
+  position: absolute;
+  z-index: 3;
+  top: 16px;
+  right: 19px;
+  color: #fff;
+  font-weight: bold;
+  text-shadow: 0 2px 8px #000;
+}
+
+#status {
+  position: absolute;
+  z-index: 3;
+  left: 14px;
+  bottom: 15px;
+  max-width: 78vw;
+  padding: 8px 12px;
+  border-radius: 7px;
+  color: white;
+  background: rgba(0,0,0,.55);
+  font-size: 12px;
+}
+
+#osd {
+  position: absolute;
+  z-index: 4;
+  right: 18px;
+  bottom: 60px;
+  padding: 12px 17px;
+  border: 1px solid rgba(255,255,255,.4);
+  border-radius: 8px;
+  background: rgba(14,25,38,.9);
+  color: white;
+  font-weight: bold;
+  opacity: 0;
+  transition: opacity .2s;
+  pointer-events: none;
+}
+
+#osd.show { opacity: 1; }
+
+#menu {
+  position: absolute;
+  z-index: 8;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 410px;
+  max-width: 88vw;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border-right: 1px solid rgba(230,240,250,.35);
+  box-shadow: 12px 0 40px rgba(0,0,0,.5);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transform: translateX(-105%);
+  transition: transform .24s ease;
+}
+
+#menu.open { transform: translateX(0); }
+
+.menu-head {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255,255,255,.13);
+}
+
+.menu-brand {
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: .025em;
+  background: linear-gradient(180deg, #fff, #a9b7c5, #f5f8fb);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 5px rgba(255,255,255,.2));
+}
+
+.menu-subtitle {
+  margin-top: 5px;
+  font-size: 11px;
+  color: #d6dfe7;
+  letter-spacing: .12em;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 13px;
+}
+
+.action {
+  padding: 8px 10px;
+  color: #f5f8fb;
+  background: linear-gradient(145deg, #506274, #27394b);
+  border: 1px solid rgba(235,245,255,.38);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.action:focus, .action:hover {
+  outline: 2px solid #fff;
+  background: linear-gradient(145deg, #71869a, #394e62);
+}
+
+#playlistSelect, #search {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  color: white;
+  background: #1b2a3a;
+  border: 1px solid rgba(230,240,250,.3);
+  border-radius: 7px;
+}
+
+#search::placeholder { color: #bdc9d5; }
+
+#channelList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 9px;
+  overscroll-behavior: contain;
+}
+
+.group-label {
+  padding: 11px 8px 6px;
+  color: #dce5ed;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.channel {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  margin: 3px 0;
+  padding: 9px;
+  gap: 8px;
+  color: #f3f6f9;
+  background: rgba(255,255,255,.055);
+  border: 1px solid transparent;
+  border-radius: 7px;
+  text-align: left;
+}
+
+.channel:focus, .channel:hover {
+  outline: none;
+  background: rgba(220,232,244,.15);
+  border-color: #dfe8f0;
+}
+
+.channel.active {
+  color: white;
+  background: rgba(200,215,230,.19);
+  border-color: #fff;
+  box-shadow: 0 0 12px rgba(230,240,250,.15);
+}
+
+.channel-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+
+.favorite {
+  border: 0;
+  background: transparent;
+  color: #f1f4f7;
+  font-size: 18px;
+  padding: 3px;
+}
+
+#menuFoot {
+  padding: 10px 13px;
+  color: #c4cfda;
+  font-size: 10px;
+  border-top: 1px solid rgba(255,255,255,.12);
+}
+
+#busy {
+  display: none;
+  position: absolute;
+  z-index: 5;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%,-50%);
+  text-align: center;
+  color: white;
+  text-shadow: 0 2px 8px #000;
+  pointer-events: none;
+}
+
+#busy.show { display: block; }
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 12px;
+  border: 3px solid rgba(255,255,255,.25);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+
+.modal-back {
+  display: none;
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  background: rgba(0,0,0,.75);
+}
+
+.modal-back.show { display: flex; }
+
+.modal {
+  width: min(510px, 100%);
+  max-height: 90%;
+  overflow-y: auto;
+  padding: 18px;
+  border: 1px solid rgba(230,240,250,.45);
+  border-radius: 12px;
+  background: #1b2a3a;
+  box-shadow: 0 20px 70px #000;
+}
+
+.modal h2 {
+  margin: 0 0 14px;
+  color: #f0f4f8;
+  font-size: 19px;
+}
+
+.modal label {
+  display: block;
+  margin: 12px 0 5px;
+  color: #dce5ed;
+  font-size: 12px;
+}
+
+.modal input, .modal select {
+  width: 100%;
+  padding: 11px;
+  color: white;
+  background: #101c29;
+  border: 1px solid rgba(230,240,250,.28);
+  border-radius: 7px;
+}
+
+.modal input::placeholder { color: #aab7c4; }
+
+.modal-note {
+  margin-top: 12px;
+  color: #bdc9d5;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.modal-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.saved-row {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,.13);
+}
+
+.saved-title {
+  color: white;
+  font-weight: bold;
+}
+
+.saved-info {
+  color: #bdc9d5;
+  font-size: 11px;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+
+#toast {
+  position: absolute;
+  z-index: 30;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 90vw;
+  padding: 11px 16px;
+  border-radius: 8px;
+  color: white;
+  background: #25384b;
+  border: 1px solid rgba(255,255,255,.4);
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s;
+}
+
+#toast.show { opacity: 1; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes appear {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media(max-width:600px) {
+  #menu { width: 360px; }
+}
+
+</style>
+</head>
+
+<body>
+<div id="app">
+
+  <video id="video" playsinline controls></video>
+
+  <section id="splash">
+    <div class="splash-content">
+      <div class="brand">PLAZA DE<br>LA DIGNIDAD TV</div>
+      <div class="brand-line"></div>
+      <div class="slogan">LA HISTORIA ES NUESTRA</div>
+      <div class="splash-hint">Iniciando último canal en 15 segundos</div>
+    </div>
+  </section>
+
+  <div id="clock">--:--</div>
+  <div id="status">Abre el menú para cargar tus listas</div>
+  <div id="osd"></div>
+
+  <div id="busy">
+    <div class="spinner"></div>
+    <div id="busyText">Conectando señal...</div>
+  </div>
+
+  <aside id="menu">
+    <div class="menu-head">
+      <div class="menu-brand">PLAZA DE LA DIGNIDAD TV</div>
+      <div class="menu-subtitle">LA HISTORIA ES NUESTRA</div>
+
+      <div class="actions">
+        <button class="action" id="addBtn">+ AGREGAR LISTA</button>
+        <button class="action" id="manageBtn">MIS LISTAS</button>
+        <button class="action" id="favBtn">★ FAVORITOS</button>
+        <button class="action" id="allBtn">TODOS</button>
+      </div>
+
+      <select id="playlistSelect">
+        <option value="">Todas las listas</option>
+      </select>
+
+      <input id="search" type="search" placeholder="Buscar canal...">
+    </div>
+
+    <div id="channelList">
+      <div style="padding:25px;text-align:center;color:#ccd6df">
+        No hay listas cargadas.<br>Agrega tu primera lista.
+      </div>
+    </div>
+
+    <div id="menuFoot">
+      OK: seleccionar · ↑ ↓: navegar · ←: menú · ATRÁS: cerrar
+    </div>
+  </aside>
+
+  <div class="modal-back" id="addModal">
+    <div class="modal">
+      <h2>Agregar lista</h2>
+
+      <label for="listName">Nombre de la lista</label>
+      <input id="listName" placeholder="Mi lista">
+
+      <label for="listType">Tipo de lista</label>
+      <select id="listType">
+        <option value="M3U">M3U</option>
+        <option value="M3U8">M3U8</option>
+        <option value="RAW">GitHub RAW</option>
+        <option value="ASTRA">Astra compatible M3U</option>
+      </select>
+
+      <label for="listUrl">Dirección URL (HTTP o HTTPS)</label>
+      <input id="listUrl" type="url" placeholder="http://servidor/lista.m3u">
+
+      <label for="fileInput">O cargar archivo desde el dispositivo</label>
+      <input id="fileInput" type="file"
+             accept=".m3u,.m3u8,.txt">
+
+      <div class="modal-note">
+        Puedes guardar hasta 10 listas. Las listas se conservan en este
+        navegador. Las listas Astra deben ofrecer contenido de canales
+        compatible con M3U para ser interpretadas por este reproductor.
+      </div>
+
+      <div class="modal-buttons">
+        <button class="action" id="saveBtn">GUARDAR LISTA</button>
+        <button class="action" id="cancelBtn">CANCELAR</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-back" id="manageModal">
+    <div class="modal">
+      <h2>Mis listas</h2>
+      <div id="savedLists"></div>
+      <div class="modal-note">
+        MANTENER conserva la lista. BORRAR la elimina del almacenamiento.
+      </div>
+      <div class="modal-buttons">
+        <button class="action" id="closeManageBtn">CERRAR</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script>
+"use strict";
+
+/* =====================================================
+   ESTADO GENERAL
+   ===================================================== */
+
+const video = document.getElementById("video");
+const menu = document.getElementById("menu");
+const splash = document.getElementById("splash");
+const channelList = document.getElementById("channelList");
+const playlistSelect = document.getElementById("playlistSelect");
+const search = document.getElementById("search");
+
+let db;
+let playlists = [];
+let channels = [];
+let visibleChannels = [];
+let currentChannel = null;
+let hls = null;
+let menuOpen = false;
+let favoritesOnly = false;
+let focusIndex = 0;
+let playbackSequence = 0;
+let osdTimer = null;
+let toastTimer = null;
+let splashTimer = null;
+let playbackTimer = null;
+
+const MAX_LISTS = 10;
+
+/* =====================================================
+   INTERFAZ
+   ===================================================== */
+
+function status(message) {
+  document.getElementById("status").textContent = message;
+}
+
+function busy(show, message) {
+  document.getElementById("busyText").textContent = message || "Conectando...";
+  document.getElementById("busy").classList.toggle("show", !!show);
+}
+
+function toast(message, duration = 4000) {
+  const el = document.getElementById("toast");
+  el.textContent = message;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), duration);
+}
+
+function showOSD(message) {
+  const el = document.getElementById("osd");
+  el.textContent = message;
+  el.classList.add("show");
+  clearTimeout(osdTimer);
+  osdTimer = setTimeout(() => el.classList.remove("show"), 3500);
+}
+
+function openMenu() {
+  menuOpen = true;
+  menu.classList.add("open");
+  document.getElementById("clock").style.display = "none";
+  renderChannels();
+}
+
+function closeMenu() {
+  menuOpen = false;
+  menu.classList.remove("open");
+  document.getElementById("clock").style.display = "block";
+}
+
+function hideSplash() {
+  splash.classList.add("hidden");
+}
+
+/* =====================================================
+   RELOJ
+   ===================================================== */
+
+function updateClock() {
+  document.getElementById("clock").textContent =
+    new Date().toLocaleTimeString("es-CL", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+}
+
+updateClock();
+setInterval(updateClock, 30000);
+
+/* =====================================================
+   BASE DE DATOS INDEXEDDB
+   ===================================================== */
+
+function openDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("PlazaDignidadTV", 1);
+
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains("lists")) {
+        database.createObjectStore("lists", { keyPath: "id" });
+      }
+    };
+
+    request.onsuccess = () => {
+      db = request.result;
+      resolve(db);
+    };
+
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function getAllLists() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("lists", "readonly");
+    const request = tx.objectStore("lists").getAll();
+
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function saveListDB(item) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("lists", "readwrite");
+    tx.objectStore("lists").put(item);
+
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function deleteListDB(id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("lists", "readwrite");
+    tx.objectStore("lists").delete(id);
+
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/* =====================================================
+   FAVORITOS Y ÚLTIMO CANAL
+   ===================================================== */
+
+function getFavorites() {
+  try {
+    return JSON.parse(localStorage.getItem("pd_favorites") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveLastChannel(channel) {
+  localStorage.setItem("pd_last_channel", JSON.stringify({
+    url: channel.url,
+    name: channel.name,
+    playlistId: channel.playlistId,
+    savedAt: Date.now()
+  }));
+}
+
+function getLastChannel() {
+  try {
+    return JSON.parse(localStorage.getItem("pd_last_channel") || "null");
+  } catch {
+    return null;
+  }
+}
+
+function toggleFavorite(channel) {
+  let fav = getFavorites();
+
+  if (fav.includes(channel.url)) {
+    fav = fav.filter(x => x !== channel.url);
+  } else {
+    fav.push(channel.url);
+  }
+
+  localStorage.setItem("pd_favorites", JSON.stringify(fav));
+  renderChannels();
+}
+
+/* =====================================================
+   ANALIZADOR M3U
+   ===================================================== */
+
+function parseM3U(text, playlist) {
+  const lines = String(text || "")
+    .replace(/^\uFEFF/, "")
+    .replace(/\r/g, "")
+    .split("\n");
+
+  const result = [];
+  let metadata = null;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    if (line.startsWith("#EXTINF")) {
+      const comma = line.lastIndexOf(",");
+      const name = comma >= 0
+        ? line.substring(comma + 1).trim()
+        : "Canal sin nombre";
+
+      const group = line.match(/group-title="([^"]*)"/i);
+      const logo = line.match(/tvg-logo="([^"]*)"/i);
+      const tvgid = line.match(/tvg-id="([^"]*)"/i);
+
+      metadata = {
+        name: name || "Canal sin nombre",
+        group: group ? group[1] : "General",
+        logo: logo ? logo[1] : "",
+        tvgid: tvgid ? tvgid[1] : ""
+      };
+      continue;
+    }
+
+    if (line.startsWith("#")) continue;
+
+    if (/^https?:\/\//i.test(line)) {
+      if (!metadata) {
+        metadata = {
+          name: "Canal " + (result.length + 1),
+          group: "General",
+          logo: "",
+          tvgid: ""
+        };
+      }
+
+      result.push({
+        id: playlist.id + "_" + result.length,
+        playlistId: playlist.id,
+        playlistName: playlist.name,
+        name: metadata.name,
+        group: metadata.group,
+        logo: metadata.logo,
+        tvgid: metadata.tvgid,
+        url: line
+      });
+
+      metadata = null;
+    }
+  }
+
+  return result;
+}
+
+/* =====================================================
+   CARGA DE LISTAS Y LÍMITE DE 10
+   ===================================================== */
+
+async function addPlaylist(name, type, content, sourceUrl = "") {
+  if (playlists.length >= MAX_LISTS) {
+    throw new Error("Límite de 10 listas alcanzado. Borra una para agregar otra.");
+  }
+
+  if (!content || !content.trim()) {
+    throw new Error("La lista está vacía.");
+  }
+
+  const id = "pd_" + Date.now() + "_" +
+    Math.random().toString(36).slice(2, 7);
+
+  const item = {
+    id,
+    name: name || "Mi lista",
+    type: type || "M3U",
+    content,
+    sourceUrl,
+    keep: true,
+    createdAt: Date.now()
+  };
+
+  const parsed = parseM3U(content, item);
+
+  if (!parsed.length) {
+    throw new Error(
+      "No se encontraron canales M3U. Comprueba el formato del archivo."
+    );
+  }
+
+  await saveListDB(item);
+
+  playlists.push(item);
+  channels.push(...parsed);
+
+  updatePlaylistSelector();
+  renderChannels();
+
+  toast("Lista guardada: " + item.name + " · " + parsed.length + " canales");
+  return item;
+}
+
+async function importLocalFile(file, type, name) {
+  if (!file) throw new Error("Selecciona un archivo local.");
+
+  const content = await file.text();
+
+  return addPlaylist(
+    name || file.name,
+    type || file.name.split(".").pop(),
+    content
+  );
+}
+
+async function importUrl(rawUrl, type, name) {
+  const url = String(rawUrl || "").trim();
+
+  if (!url) throw new Error("Ingresa la dirección de la lista.");
+
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("La dirección URL no es válida.");
+  }
+
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error("Solo se admiten direcciones HTTP y HTTPS.");
+  }
+
+  let response;
+
+  try {
+    response = await fetch(parsed.href, {
+      method: "GET",
+      cache: "no-store",
+      mode: "cors",
+      credentials: "omit"
+    });
+  } catch (error) {
+    if (location.protocol === "https:" && parsed.protocol === "http:") {
+      throw new Error(
+        "El navegador bloqueó esta URL HTTP por contenido mixto. " +
+        "Sin proxy no es posible descargarla desde esta página HTTPS. " +
+        "Puedes cargar el archivo local si lo tienes descargado."
+      );
+    }
+
+    throw new Error(
+      "No se pudo descargar la lista. El servidor puede bloquear CORS o estar fuera de servicio."
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error("Error HTTP " + response.status + " al descargar la lista.");
+  }
+
+  const content = await response.text();
+
+  return addPlaylist(
+    name || parsed.hostname,
+    type || "M3U",
+    content,
+    parsed.href
+  );
+}
+
+/* =====================================================
+   RECUPERAR LISTAS GUARDADAS
+   ===================================================== */
+
+function rebuildChannels() {
+  channels = [];
+
+  for (const list of playlists) {
+    channels.push(...parseM3U(list.content, list));
+  }
+
+  updatePlaylistSelector();
+  renderChannels();
+}
+
+function updatePlaylistSelector() {
+  const old = playlistSelect.value;
+  playlistSelect.innerHTML = '<option value="">Todas las listas</option>';
+
+  for (const list of playlists) {
+    const option = document.createElement("option");
+    option.value = list.id;
+    option.textContent = list.name;
+    playlistSelect.appendChild(option);
+  }
+
+  if (playlists.some(x => x.id === old)) {
+    playlistSelect.value = old;
+  }
+}
+
+/* =====================================================
+   LISTA VISUAL DE CANALES
+   ===================================================== */
+
+function renderChannels() {
+  const query = search.value.trim().toLowerCase();
+  const favorites = getFavorites();
+
+  visibleChannels = channels.filter(channel => {
+    const matchesText =
+      channel.name.toLowerCase().includes(query) ||
+      channel.group.toLowerCase().includes(query);
+
+    const matchesList =
+      !playlistSelect.value ||
+      channel.playlistId === playlistSelect.value;
+
+    const matchesFavorite =
+      !favoritesOnly || favorites.includes(channel.url);
+
+    return matchesText && matchesList && matchesFavorite;
+  });
+
+  channelList.innerHTML = "";
+
+  if (!visibleChannels.length) {
+    const empty = document.createElement("div");
+    empty.style.cssText =
+      "padding:25px;text-align:center;color:#cbd6e0;line-height:1.6";
+    empty.textContent = channels.length
+      ? "No hay canales que coincidan con la búsqueda."
+      : "No hay canales cargados. Usa AGREGAR LISTA.";
+    channelList.appendChild(empty);
+    return;
+  }
+
+  let lastGroup = "";
+
+  visibleChannels.forEach((channel, index) => {
+    if (channel.group !== lastGroup) {
+      lastGroup = channel.group;
+      const group = document.createElement("div");
+      group.className = "group-label";
+      group.textContent = lastGroup || "General";
+      channelList.appendChild(group);
+    }
+
+    const button = document.createElement("button");
+    button.className = "channel";
+    button.type = "button";
+
+    if (currentChannel && currentChannel.url === channel.url) {
+      button.classList.add("active");
+    }
+
+    const label = document.createElement("span");
+    label.className = "channel-name";
+    label.textContent = channel.name;
+
+    const star = document.createElement("button");
+    star.className = "favorite";
+    star.type = "button";
+    star.textContent = getFavorites().includes(channel.url) ? "★" : "☆";
+
+    star.addEventListener("click", event => {
+      event.stopPropagation();
+      toggleFavorite(channel);
+    });
+
+    button.append(label, star);
+    button.addEventListener("click", () => playChannel(channel));
+
+    button.dataset.index = index;
+    channelList.appendChild(button);
+  });
+
+  focusIndex = Math.min(focusIndex, visibleChannels.length - 1);
+}
+
+search.addEventListener("input", renderChannels);
+playlistSelect.addEventListener("change", renderChannels);
+
+document.getElementById("favBtn").addEventListener("click", () => {
+  favoritesOnly = true;
+  renderChannels();
+});
+
+document.getElementById("allBtn").addEventListener("click", () => {
+  favoritesOnly = false;
+  playlistSelect.value = "";
+  search.value = "";
+  renderChannels();
+});
+
+/* =====================================================
+   REPRODUCTOR
+   ===================================================== */
+
+function stopPlayer() {
+  clearTimeout(playbackTimer);
+  busy(false);
+
+  if (hls) {
+    try { hls.destroy(); } catch {}
+    hls = null;
+  }
+
+  video.pause();
+  video.removeAttribute("src");
+  video.load();
+}
+
+function playChannel(channel) {
+  if (!channel || !channel.url) return;
+
+  playbackSequence++;
+  const sequence = playbackSequence;
+
+  currentChannel = channel;
+  saveLastChannel(channel);
+
+  hideSplash();
+  closeMenu();
+  stopPlayer();
+
+  showOSD(channel.name);
+  busy(true, "Conectando con " + channel.name);
+  status("Cargando canal: " + channel.name);
+
+  video.onplaying = () => {
+    if (sequence !== playbackSequence) return;
+    clearTimeout(playbackTimer);
+    busy(false);
+    status("EN VIVO · " + channel.name);
+  };
+
+  video.onerror = () => {
+    if (sequence !== playbackSequence) return;
+    clearTimeout(playbackTimer);
+    busy(false);
+    status("No se pudo reproducir esta señal.");
+  };
+
+  playbackTimer = setTimeout(() => {
+    if (sequence !== playbackSequence) return;
+    if (video.readyState < 2) {
+      busy(false);
+      status("La señal no respondió. Comprueba el servidor de origen.");
+    }
+  }, 25000);
+
+  const url = channel.url.trim();
+
+  // HLS.js para Chrome y navegadores compatibles.
+  if (window.Hls && Hls.isSupported()) {
+    hls = new Hls({
+      enableWorker: true,
+      lowLatencyMode: true,
+      backBufferLength: 30,
+      maxBufferLength: 20,
+      maxMaxBufferLength: 40,
+      maxBufferSize: 30 * 1000 * 1000,
+      manifestLoadingTimeOut: 20000,
+      levelLoadingTimeOut: 20000,
+      fragLoadingTimeOut: 25000,
+      manifestLoadingMaxRetry: 2,
+      levelLoadingMaxRetry: 2,
+      fragLoadingMaxRetry: 3,
+      xhrSetup(xhr) {
+        xhr.withCredentials = false;
+      }
+    });
+
+    hls.on(Hls.Events.ERROR, (event, data) => {
+      if (sequence !== playbackSequence || !data.fatal) return;
+
+      if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+        status("Problema de red. Intentando recuperar...");
+        try { hls.startLoad(); } catch {}
+      } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+        status("Recuperando el reproductor...");
+        try { hls.recoverMediaError(); } catch {}
+      } else {
+        busy(false);
+        status("Formato no compatible o señal no disponible.");
+        stopPlayer();
+      }
+    });
+
+    hls.loadSource(url);
+    hls.attachMedia(video);
+
+  } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+    // HLS nativo, cuando está disponible.
+    video.src = url;
+    video.load();
+
+    video.play().catch(() => {
+      busy(false);
+      status("Pulsa PLAY u OK para iniciar la señal.");
+    });
+
+  } else {
+    busy(false);
+    status("Este navegador no admite reproducción HLS.");
+  }
+
+  renderChannels();
+}
+
+/* =====================================================
+   CAMBIO DE CANAL
+   ===================================================== */
+
+function zap(direction) {
+  if (!channels.length) {
+    toast("No hay canales cargados.");
+    return;
+  }
+
+  let index = currentChannel
+    ? channels.findIndex(c => c.url === currentChannel.url)
+    : -1;
+
+  index = (index + direction + channels.length) % channels.length;
+  playChannel(channels[index]);
+}
+
+/* =====================================================
+   ADMINISTRACIÓN DE LISTAS
+   ===================================================== */
+
+async function renderSavedLists() {
+  const holder = document.getElementById("savedLists");
+  holder.innerHTML = "";
+
+  if (!playlists.length) {
+    holder.textContent = "No tienes listas guardadas.";
+    return;
+  }
+
+  for (const list of playlists) {
+    const row = document.createElement("div");
+    row.className = "saved-row";
+
+    const title = document.createElement("div");
+    title.className = "saved-title";
+    title.textContent = list.name + " · " + list.type;
+
+    const info = document.createElement("div");
+    info.className = "saved-info";
+    info.textContent = list.sourceUrl
+      ? "URL: " + list.sourceUrl
+      : "Archivo local guardado en este dispositivo";
+
+    const buttons = document.createElement("div");
+    buttons.className = "modal-buttons";
+
+    const keep = document.createElement("button");
+    keep.className = "action";
+    keep.textContent = "MANTENER";
+    keep.addEventListener("click", () => {
+      toast("Lista mantenida: " + list.name);
+    });
+
+    const remove = document.createElement("button");
+    remove.className = "action";
+    remove.textContent = "BORRAR";
+    remove.addEventListener("click", async () => {
+      if (!confirm("¿Deseas borrar la lista " + list.name + "?")) return;
+
+      await deleteListDB(list.id);
+      playlists = playlists.filter(x => x.id !== list.id);
+
+      if (currentChannel && currentChannel.playlistId === list.id) {
+        stopPlayer();
+        currentChannel = null;
+      }
+
+      rebuildChannels();
+      await renderSavedLists();
+      toast("Lista borrada.");
+    });
+
+    buttons.append(keep, remove);
+    row.append(title, info, buttons);
+    holder.appendChild(row);
+  }
+}
+
+/* =====================================================
+   VENTANAS
+   ===================================================== */
+
+const addModal = document.getElementById("addModal");
+const manageModal = document.getElementById("manageModal");
+
+document.getElementById("addBtn").addEventListener("click", () => {
+  if (playlists.length >= MAX_LISTS) {
+    toast("Ya tienes 10 listas. Borra una para agregar otra.");
+    return;
+  }
+  addModal.classList.add("show");
+});
+
+document.getElementById("cancelBtn").addEventListener("click", () => {
+  addModal.classList.remove("show");
+});
+
+document.getElementById("manageBtn").addEventListener("click", async () => {
+  await renderSavedLists();
+  manageModal.classList.add("show");
+});
+
+document.getElementById("closeManageBtn").addEventListener("click", () => {
+  manageModal.classList.remove("show");
+});
+
+document.getElementById("saveBtn").addEventListener("click", async () => {
+  const name = document.getElementById("listName").value.trim();
+  const type = document.getElementById("listType").value;
+  const url = document.getElementById("listUrl").value.trim();
+  const file = document.getElementById("fileInput").files[0];
+
+  const button = document.getElementById("saveBtn");
+  button.disabled = true;
+  button.textContent = "CARGANDO...";
+
+  try {
+    if (file) {
+      await importLocalFile(file, type, name || file.name);
+    } else if (url) {
+      await importUrl(url, type, name);
+    } else {
+      throw new Error("Escribe una URL o selecciona un archivo.");
+    }
+
+    addModal.classList.remove("show");
+    document.getElementById("listName").value = "";
+    document.getElementById("listUrl").value = "";
+    document.getElementById("fileInput").value = "";
+    openMenu();
+
+  } catch (error) {
+    toast(error.message, 6500);
+  } finally {
+    button.disabled = false;
+    button.textContent = "GUARDAR LISTA";
+  }
+});
+
+/* =====================================================
+   AUTObOOT: SIEMPRE 15 SEGUNDOS Y ÚLTIMO CANAL
+   ===================================================== */
+
+async function autoboot() {
+  const last = getLastChannel();
+
+  // La bienvenida permanece visible 15 segundos siempre.
+  splashTimer = setTimeout(() => {
+    hideSplash();
+
+    if (!last || !last.url) {
+      status("Listo. Abre el menú para cargar tus listas.");
+      openMenu();
+      return;
+    }
+
+    const list = playlists.find(p => p.id === last.playlistId);
+
+    if (!list) {
+      status("No se encontró la lista del último canal.");
+      openMenu();
+      return;
+    }
+
+    const restored = parseM3U(list.content, list);
+    const channel = restored.find(c => c.url === last.url);
+
+    if (!channel) {
+      status("No se encontró el último canal sintonizado.");
+      openMenu();
+      return;
+    }
+
+    // Recupera automáticamente el canal que se estaba viendo.
+    playChannel(channel);
+  }, 15000);
+}
+
+/* =====================================================
+   CONTROL REMOTO Y TECLADO
+   ===================================================== */
+
+document.addEventListener("keydown", event => {
+  const key = event.key;
+  const code = event.keyCode;
+
+  if (addModal.classList.contains("show") ||
+      manageModal.classList.contains("show")) {
+    if (key === "Escape" || key === "Backspace") {
+      addModal.classList.remove("show");
+      manageModal.classList.remove("show");
+    }
+    return;
+  }
+
+  if (key === "Escape" || key === "Backspace" ||
+      key === "BrowserBack") {
+    event.preventDefault();
+    if (menuOpen) closeMenu();
+    else openMenu();
+    return;
+  }
+
+  if (key === "ArrowLeft") {
+    event.preventDefault();
+    openMenu();
+    return;
+  }
+
+  if (key === "ArrowRight") {
+    if (menuOpen) {
+      event.preventDefault();
+      closeMenu();
+    }
+    return;
+  }
+
+  if (key === "ArrowDown" || key === "ArrowUp") {
+    if (menuOpen) {
+      event.preventDefault();
+
+      const buttons = Array.from(
+        channelList.querySelectorAll(".channel")
+      );
+
+      if (!buttons.length) return;
+
+      focusIndex = (
+        focusIndex + (key === "ArrowDown" ? 1 : -1) + buttons.length
+      ) % buttons.length;
+
+      buttons[focusIndex].focus();
+      buttons[focusIndex].scrollIntoView({ block: "nearest" });
+
+    } else {
+      event.preventDefault();
+      zap(key === "ArrowDown" ? 1 : -1);
+    }
+    return;
+  }
+
+  if (key === "PageDown" || code === 428) {
+    event.preventDefault();
+    zap(1);
+    return;
+  }
+
+  if (key === "PageUp" || code === 427) {
+    event.preventDefault();
+    zap(-1);
+    return;
+  }
+
+  if (key === "Enter" || key === "OK") {
+    if (!menuOpen && document.activeElement === video) {
+      event.preventDefault();
+      openMenu();
+    }
+  }
+});
+
+splash.addEventListener("click", () => {
+  clearTimeout(splashTimer);
+  hideSplash();
+  openMenu();
+});
+
+video.addEventListener("click", () => {
+  if (!menuOpen) openMenu();
+});
+
+/* =====================================================
+   ARRANQUE
+   ===================================================== */
+
+async function initialize() {
+  try {
+    await openDatabase();
+    playlists = await getAllLists();
+
+    playlists.sort((a, b) => a.createdAt - b.createdAt);
+    rebuildChannels();
+
+    await autoboot();
+
+  } catch (error) {
+    status("No se pudo abrir el almacenamiento de listas.");
+    toast("Error de almacenamiento: " + error.message);
+  }
+}
+
+initialize();
+
+</script>
+</body>
+</html>
+
